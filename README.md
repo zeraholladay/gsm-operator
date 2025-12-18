@@ -1,8 +1,55 @@
 # gsm-operator
-// TODO(user): Add simple overview of use/purpose
+GSMSecret is a static materialization operator that creates a Kubernetes
+Secret from a Google Secret Manager (GSM) secret.
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+Purpose:
+  - Bridge GSM to native Kubernetes Secrets in environments (e.g. Autopilot)
+    where CSI drivers or node plugins cannot be used.
+  - Allow workloads to consume GSM-managed secrets via standard Kubernetes
+    mechanisms such as envFrom, env.valueFrom.secretKeyRef, or Secret volumes.
+
+Behavior:
+  - On creation (or spec change) of a GSMSecret resource, the operator fetches
+    the specified GSM secret version and creates or updates a Kubernetes Secret.
+  - No continuous sync or polling is performed; GSM changes are not propagated
+    unless the GSMSecret resource itself is modified or recreated.
+  - The operator runs entirely in the control plane using Workload Identity
+    and does not install node-level binaries.
+
+Tradeoffs:
+  - Secrets are static once materialized.
+  - Secret rotation requires an explicit user action (e.g. version bump or
+    resource recreation).
+
+`gsm-operator` manages `GSMSecret` custom resources that materialize Google Secret Manager entries into Kubernetes `Secret` objects.
+
+Example `GSMSecret`:
+
+```yaml
+apiVersion: secrets.wayfair.com/v1alpha1
+kind: GSMSecret
+metadata:
+  name: my-api-key
+  namespace: app-namespace
+spec:
+  # projects/wf-gcp-prod/secrets/my-secret/versions/latest
+  projectId: "wf-gcp-prod"
+  secretId: my-secret           # GSM secret name
+  version: "latest"             # recommend pinning a version for true “static”
+  targetSecret:
+    name: my-api-key            # name of K8s Secret
+    type: Opaque                # or kubernetes.io/tls, etc.
+  data:
+    - key: api-key              # key in K8s Secret .data
+      payloadType: text         # or json/binary if you need it
+# status:
+#   observedGeneration: 1
+#   conditions:
+#     - type: Ready
+#       status: "True"
+#       reason: Materialized
+#       message: "Created Kubernetes Secret from GSM version 7"
+```
 
 ## Getting Started
 
@@ -111,7 +158,7 @@ previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml
 is manually re-applied afterwards.
 
 ## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
+TODO(user): Add detailed information on how you would like others to contribute to this project
 
 **NOTE:** Run `make help` for more information on all potential `make` targets
 
