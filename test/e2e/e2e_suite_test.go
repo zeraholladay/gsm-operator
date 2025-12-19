@@ -28,7 +28,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/wayfair-shared/cow-tools-go/gsm-operator/test/utils"
+	"github.com/wayfair-shared/gsm-operator/test/utils"
 )
 
 var (

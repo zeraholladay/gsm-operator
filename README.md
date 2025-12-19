@@ -29,19 +29,16 @@ Example `GSMSecret`:
 apiVersion: secrets.wayfair.com/v1alpha1
 kind: GSMSecret
 metadata:
-  name: my-api-key
+  name: my-gsm-secrets
   namespace: app-namespace
 spec:
-  # projects/wf-gcp-prod/secrets/my-secret/versions/latest
-  projectId: "wf-gcp-prod"
-  secretId: my-secret           # GSM secret name
-  version: "latest"             # recommend pinning a version for true “static”
   targetSecret:
-    name: my-api-key            # name of K8s Secret
-    type: Opaque                # or kubernetes.io/tls, etc.
-  data:
-    - key: api-key              # key in K8s Secret .data
-      payloadType: text         # or json/binary if you need it
+    name: my-secret             # name of K8s Secret
+  gsmSecrets:
+    - key: MY_ENVVAR
+      projectId: "wf-gcp-prod"  # GSM Secret project ID
+      secretId: my-secret       # GSM secret name
+      version: "latest"         # recommend pinning a version for true “static”
 # status:
 #   observedGeneration: 1
 #   conditions:
@@ -49,6 +46,28 @@ spec:
 #       status: "True"
 #       reason: Materialized
 #       message: "Created Kubernetes Secret from GSM version 7"
+```
+
+Creates a secret:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-secret
+type: Opaque
+data:
+  MY_ENVVAR: c2VjcmV0LXZhbHVl
+```
+
+Usage:
+
+```yaml
+...
+    envFrom:
+    - secretRef:
+        name: my-secret
+...
 ```
 
 ## Getting Started

@@ -7,7 +7,7 @@ domain: wayfair.com
 layout:
 - go.kubebuilder.io/v4
 projectName: gsm-operator
-repo: github.com/wayfair-shared/cow-tools-go/gsm-operator
+repo: github.com/wayfair-shared/gsm-operator
 resources:
 - api:
     crdVersion: v1
@@ -16,6 +16,6 @@ resources:
   domain: wayfair.com
   group: secrets.wayfair.com
   kind: GSMSecret
-  path: github.com/wayfair-shared/cow-tools-go/gsm-operator/api/v1alpha1
+  path: github.com/wayfair-shared/gsm-operator/api/v1alpha1
   version: v1alpha1
 version: "3"

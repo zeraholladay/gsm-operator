@@ -32,7 +32,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	secretswayfaircomv1alpha1 "github.com/wayfair-shared/cow-tools-go/gsm-operator/api/v1alpha1"
+	secretswayfaircomv1alpha1 "github.com/wayfair-shared/gsm-operator/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 

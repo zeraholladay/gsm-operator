@@ -20,36 +20,66 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
-// GSMSecretSpec defines the desired state of GSMSecret
+// GSMSecretSpec defines the desired state of GSMSecret.
 type GSMSecretSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+	// TargetSecret describes the Kubernetes Secret to create or update.
+	// +kubebuilder:validation:Required
+	TargetSecret GSMSecretTargetSecret `json:"targetSecret"`
 
-	// foo is an example field of GSMSecret. Edit gsmsecret_types.go to remove/update
-	// +optional
-	Foo *string `json:"foo,omitempty"`
+	// Secrets is the list of GSM secrets to materialize into the target Secret.
+	// +kubebuilder:validation:MinItems=1
+	Secrets []GSMSecretEntry `json:"gsmSecrets"`
+}
+
+// GSMSecretTargetSecret describes the Kubernetes Secret to materialize into.
+type GSMSecretTargetSecret struct {
+	// Name is the name of the Kubernetes Secret to create or update.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+}
+
+// GSMSecretEntry describes a single GSM secret to materialize.
+type GSMSecretEntry struct {
+	// Key is the key under which the value will be stored in the target Secret's data.
+	// Example: "MY_ENVVAR".
+	// +kubebuilder:validation:MinLength=1
+	Key string `json:"key"`
+
+	// ProjectID is the GCP project that owns the Secret Manager secret.
+	// Example: "wf-gcp-prod".
+	// +kubebuilder:validation:MinLength=1
+	ProjectID string `json:"projectId"`
+
+	// SecretID is the name of the Secret Manager secret.
+	// Example: "my-secret".
+	// +kubebuilder:validation:MinLength=1
+	SecretID string `json:"secretId"`
+
+	// Version is the Secret Manager secret version to materialize.
+	// Examples: "7" or "latest".
+	// If omitted, the controller defaults to "latest".
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:default:="latest"
+	Version string `json:"version,omitempty"`
 }
 
 // GSMSecretStatus defines the observed state of GSMSecret.
 type GSMSecretStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// ObservedGeneration is the most recent generation observed by the controller.
+	// It is used to determine whether the status reflects the current desired state.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// For Kubernetes API conventions, see:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 
-	// conditions represent the current state of the GSMSecret resource.
+	// Conditions represent the current state of the GSMSecret resource.
 	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
 	//
 	// Standard condition types include:
-	// - "Available": the resource is fully functional
-	// - "Progressing": the resource is being created or updated
-	// - "Degraded": the resource failed to reach or maintain its desired state
+	// - "Ready": the Secret has been successfully materialized.
+	// - "Progressing": the Secret is being created or updated.
+	// - "Degraded": the controller failed to reach or maintain the desired state.
 	//
 	// The status of each condition is one of True, False, or Unknown.
 	// +listType=map
@@ -61,29 +91,29 @@ type GSMSecretStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// GSMSecret is the Schema for the gsmsecrets API
+// GSMSecret is the Schema for the gsmsecrets API.
 type GSMSecret struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// metadata is a standard object metadata
+	// Metadata is standard object metadata.
 	// +optional
-	metav1.ObjectMeta `json:"metadata,omitzero"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// spec defines the desired state of GSMSecret
+	// Spec defines the desired state of GSMSecret.
 	// +required
 	Spec GSMSecretSpec `json:"spec"`
 
-	// status defines the observed state of GSMSecret
+	// Status defines the observed state of GSMSecret.
 	// +optional
-	Status GSMSecretStatus `json:"status,omitzero"`
+	Status GSMSecretStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// GSMSecretList contains a list of GSMSecret
+// GSMSecretList contains a list of GSMSecret.
 type GSMSecretList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitzero"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []GSMSecret `json:"items"`
 }
 

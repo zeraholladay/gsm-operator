@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	secretswayfaircomv1alpha1 "github.com/wayfair-shared/cow-tools-go/gsm-operator/api/v1alpha1"
+	secretswayfaircomv1alpha1 "github.com/wayfair-shared/gsm-operator/api/v1alpha1"
 )
 
 var _ = Describe("GSMSecret Controller", func() {

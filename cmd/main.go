@@ -35,8 +35,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	secretswayfaircomv1alpha1 "github.com/wayfair-shared/cow-tools-go/gsm-operator/api/v1alpha1"
-	"github.com/wayfair-shared/cow-tools-go/gsm-operator/internal/controller"
+	secretswayfaircomv1alpha1 "github.com/wayfair-shared/gsm-operator/api/v1alpha1"
+	"github.com/wayfair-shared/gsm-operator/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
 
