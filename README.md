@@ -104,7 +104,7 @@ docker login us-docker.pkg.dev
 **Build and push your image to the location specified by `IMG`:**
 
 ```sh
-make docker-build docker-push IMG=${registry}/gsm-operator:${tag} TARGETARCH=amd64
+make docker-build docker-push IMG=${registry}/gsm-operator:${tag}
 ```
 
 **NOTE:** This image ought to be published in the personal registry you specified.
