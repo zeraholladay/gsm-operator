@@ -39,6 +39,7 @@ type GSMSecretReconciler struct {
 // +kubebuilder:rbac:groups=secrets.wayfair.com,resources=gsmsecrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=secrets.wayfair.com,resources=gsmsecrets/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=secrets.wayfair.com,resources=gsmsecrets/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *GSMSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)

@@ -1,4 +1,4 @@
-# gsm-operator
+# gsm-operator (from Kubebuilder)
 GSMSecret is a static materialization operator that creates a Kubernetes
 Secret from a Google Secret Manager (GSM) secret.
 
@@ -83,7 +83,9 @@ Usage:
 
 1. The artifact registry exists.
 2. You have permission to write to the registry.
-3. Kyverno must be able to read the registry:
+3. The Kyverno namespace & the SA `nodes-plat-dev-c1-dsm1@wf-gcp-us-plat-k8s-dev.iam.gserviceaccount.com` must be able to read the registry:
+
+nodes-plat-dev-c1-dsm1@wf-gcp-us-plat-k8s-dev.iam.gserviceaccount.com
 
 ```sh
 gcloud artifacts repositories add-iam-policy-binding gsm-operator \
@@ -91,9 +93,16 @@ gcloud artifacts repositories add-iam-policy-binding gsm-operator \
     --location=us \
     --role="roles/artifactregistry.reader" \
     --member="principal://iam.googleapis.com/projects/659149818238/locations/global/workloadIdentityPools/wf-gcp-us-plat-k8s-dev.svc.id.goog/subject/ns/kyverno/sa/kyverno-admission-controller"
+gcloud artifacts repositories add-iam-policy-binding gsm-operator \
+    --project=wf-gcp-us-plat-gar-dev \
+    --location=us \
+    --role="roles/artifactregistry.reader" \
+    --member="serviceAccount:nodes-plat-dev-c1-dsm1@wf-gcp-us-plat-k8s-dev.iam.gserviceaccount.com"
 ```
 
 **Setup:**
+
+TODO: `docker buildx build --platform linux/amd64 --push -t us-docker.pkg.dev/wf-gcp-us-plat-gar-dev/gsm-operator/gsm-operator:1f18297 .`
 
 ```sh
 registry="us-docker.pkg.dev/wf-gcp-us-plat-gar-dev/gsm-operator"
@@ -105,6 +114,7 @@ docker login us-docker.pkg.dev
 
 ```sh
 make docker-build docker-push IMG=${registry}/gsm-operator:${tag}
+bash attest_image.bash ${registry}/gsm-operator:${tag}
 ```
 
 **NOTE:** This image ought to be published in the personal registry you specified.
