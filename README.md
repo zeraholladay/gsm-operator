@@ -79,10 +79,32 @@ Usage:
 - Access to a Kubernetes v1.11.3+ cluster.
 
 ### To Deploy on the cluster
+***Prerequisites:**
+
+1. The artifact registry exists.
+2. You have permission to write to the registry.
+3. Kyverno must be able to read the registry:
+
+```sh
+gcloud artifacts repositories add-iam-policy-binding gsm-operator \
+    --project=wf-gcp-us-plat-gar-dev \
+    --location=us \
+    --role="roles/artifactregistry.reader" \
+    --member="principal://iam.googleapis.com/projects/659149818238/locations/global/workloadIdentityPools/wf-gcp-us-plat-k8s-dev.svc.id.goog/subject/ns/kyverno/sa/kyverno-admission-controller"
+```
+
+**Setup:**
+
+```sh
+registry="us-docker.pkg.dev/wf-gcp-us-plat-gar-dev/gsm-operator"
+tag=$(git rev-parse --short HEAD)
+docker login us-docker.pkg.dev
+```
+
 **Build and push your image to the location specified by `IMG`:**
 
 ```sh
-make docker-build docker-push IMG=<some-registry>/gsm-operator:tag
+make docker-build docker-push IMG=${registry}/gsm-operator:${tag} TARGETARCH=amd64
 ```
 
 **NOTE:** This image ought to be published in the personal registry you specified.
@@ -92,20 +114,43 @@ Make sure you have the proper permission to the registry if the above commands d
 **Install the CRDs into the cluster:**
 
 ```sh
+kubectl config use-context "plat-dev-c1-dsm1"
 make install
 ```
 
 **Deploy the Manager to the cluster with the image specified by `IMG`:**
 
 ```sh
-make deploy IMG=<some-registry>/gsm-operator:tag
+kubectl config use-context "plat-dev-c1-dsm1"
+make deploy IMG=${registry}/gsm-operator:${tag}
 ```
 
 > **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
 privileges or be logged in as admin.
 
 **Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
+
+The sample assumes GCP project `wf-gcp-us-cloud-plats-mcp-dev`, namespace `gsmsecret-test-ns` on `plat-dev-c1-dsm1`, and a secret called `bogus-test`.
+
+1. Create a bogus secret if it does not exist:
+
+```sh
+printf "testing123" | gcloud secrets create bogus-test \
+    --data-file=- \
+    --project=wf-gcp-us-cloud-plats-mcp-dev \
+    --replication-policy=automatic
+```
+
+2. Grant `gsmsecret-test-ns` permission to access the secret:
+
+```sh
+gcloud secrets add-iam-policy-binding bogus-test \
+    --project=wf-gcp-us-cloud-plats-mcp-dev \
+    --role="roles/secretmanager.secretAccessor" \
+    --member="principal://iam.googleapis.com/projects/659149818238/locations/global/workloadIdentityPools/wf-gcp-us-plat-k8s-dev.svc.id.goog/subject/ns/gsmsecret-test-ns/sa/default"
+```
+
+3. You can apply the samples (examples) from the config/sample:
 
 ```sh
 kubectl apply -k config/samples/
@@ -141,7 +186,7 @@ Following the options to release and provide this solution to the users.
 1. Build the installer for the image built and published in the registry:
 
 ```sh
-make build-installer IMG=<some-registry>/gsm-operator:tag
+make build-installer IMG=${registry}/gsm-operator:${tag}
 ```
 
 **NOTE:** The makefile target mentioned above generates an 'install.yaml'
