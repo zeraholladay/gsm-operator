@@ -52,7 +52,6 @@ type GSMSecretEntry struct {
 	Key string `json:"key"`
 
 	// ProjectID is the GCP project that owns the Secret Manager secret.
-	// Example: "wf-gcp-prod".
 	// +kubebuilder:validation:MinLength=1
 	ProjectID string `json:"projectId"`
 
