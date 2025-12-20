@@ -30,3 +30,5 @@ go.work
 *.kubeconfig
 
 manager
+
+.env

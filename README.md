@@ -23,6 +23,19 @@ Tradeoffs:
 
 `gsm-operator` manages `GSMSecret` custom resources that materialize Google Secret Manager entries into Kubernetes `Secret` objects.
 
+
+## Confiugration
+
+To configure environment variables used by the setup examples:
+
+```sh
+cp .env.sample .env          # copy the template
+# Modify the file
+. .env
+```
+
+## Basic Functionality
+
 Example `GSMSecret`:
 
 ```yaml
@@ -39,13 +52,8 @@ spec:
       projectId: "wf-gcp-prod"  # GSM Secret project ID
       secretId: my-secret       # GSM secret name
       version: "latest"         # recommend pinning a version for true “static”
-# status:
-#   observedGeneration: 1
-#   conditions:
-#     - type: Ready
-#       status: "True"
-#       reason: Materialized
-#       message: "Created Kubernetes Secret from GSM version 7"
+  # oidc_project_number is defined below
+  wifAudience: "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
 ```
 
 Creates a secret:
@@ -57,7 +65,7 @@ metadata:
   name: my-secret
 type: Opaque
 data:
-  MY_ENVVAR: c2VjcmV0LXZhbHVl
+  MY_ENVVAR: c2VjcmV0LXZhbHVl # base64 encoded
 ```
 
 Usage:
@@ -68,6 +76,48 @@ Usage:
     - secretRef:
         name: my-secret
 ...
+```
+
+### OIDC and wifAudience
+
+The Operator functions as an identity broker using a Dynamic Impersonation pattern. Instead of using its own broad permissions, the Operator explicitly requests a short-lived token for the tenant's Kubernetes Service Account (gsm-reader FIXME). It then exchanges this token via Google STS (OIDC) to access Secret Manager resources scoped specifically to that tenant identity. Because GKE's "Native" Workload Identity is a managed implementation designed to be "magic" and opaque (i.e., The native GKE integration does not expose a public Workload Identity Pool Provider resource for manual token exchange), we have to leverage Workload Identity Pools for non-trivial security.
+
+Build Workload Identity Pool & Provider:
+
+```sh
+### 1. Get Project Numbers
+cluster_project_number=$(gcloud projects describe "${CLUSTER_PROJECT_ID}" --format='value(projectNumber)')
+oidc_project_number=$(gcloud projects describe "${OIDC_PROJECT_ID}" --format='value(projectNumber)')
+
+### 2. Get Cluster OIDC Issuer URL
+cluster_oidc_url="https://container.googleapis.com/v1/projects/${CLUSTER_PROJECT_ID}/locations/${CLUSTER_REGION}/clusters/${CLUSTER_NAME}"
+
+### 3. Create Pool & Provider
+gcloud iam workload-identity-pools create gsm-operator-pool \
+    --location="global" \
+    --display-name="GSM Operator Pool" \
+    --project="${OIDC_PROJECT_ID}"
+
+gcloud iam workload-identity-pools providers create-oidc gsm-operator-provider \
+    --location="global" \
+    --workload-identity-pool="gsm-operator-pool" \
+    --issuer-uri="${cluster_oidc_url}" \
+    --attribute-mapping="google.subject=assertion.sub" \
+    --project="${OIDC_PROJECT_ID}"
+
+### 4. Output wifAudience
+echo "wifAudience is //iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
+
+### 5. IAM Binding Guidance
+echo IAM Binding Guidance
+echo "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:gsm-reader"
+echo gcloud secrets add-iam-policy-binding bogus-test \
+    --project="${target_project_id}" \
+    --role="roles/secretmanager.secretAccessor" \
+    --member="principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:gsm-reader"
+
+echo "... or Bind this Principal to your GSA if using Service Account impersonation (not recommended nor implemented yet):"
+echo "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:gsm-reader"
 ```
 
 ## Getting Started

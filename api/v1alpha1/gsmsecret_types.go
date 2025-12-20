@@ -29,6 +29,12 @@ type GSMSecretSpec struct {
 	// Secrets is the list of GSM secrets to materialize into the target Secret.
 	// +kubebuilder:validation:MinItems=1
 	Secrets []GSMSecretEntry `json:"gsmSecrets"`
+
+	// WIFAudience is the audience used when exchanging Kubernetes tokens via Google's STS.
+	// Example:
+	// "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
+	// +optional
+	WIFAudience string `json:"wifAudience,omitempty"`
 }
 
 // GSMSecretTargetSecret describes the Kubernetes Secret to materialize into.
