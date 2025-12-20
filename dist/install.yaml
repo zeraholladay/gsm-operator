@@ -478,7 +478,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: us-docker.pkg.dev/wf-gcp-us-plat-gar-dev/gsm-operator/gsm-operator:5896590
+        image: docker.io/zeraholladay/gsm-operator:ed33672
         livenessProbe:
           httpGet:
             path: /healthz

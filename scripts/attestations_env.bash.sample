@@ -7,16 +7,16 @@
 
 # Project that owns the attestor and KMS key
 ATTESTOR_PROJECT_ID="<attestor project>"
-ATTESTOR_NAME="decomposed-prod-attestor"
+ATTESTOR_NAME="<attestor name>"
 
 # GAR project is separate from the attestor project (matches GAR_PROJECT in repo)
-GAR_PROJECT_ID="wf-gcp-us-plat-gar-prod"
+GAR_PROJECT_ID="<GAR>"
 
 # KMS key that holds the attestor's private key (matches PROD_* in repo)
-KMS_PROJECT_ID="wf-gcp-us-plat-attestor-prod"
+KMS_PROJECT_ID="<kms project>"
 KMS_LOCATION="global"
-KMS_KEYRING="decomposed-prod-key-ring"
-KMS_KEY="decomposed-prod-attestor-key"
+KMS_KEYRING="<key ring>"
+KMS_KEY="<kms key>"
 KMS_VERSION="1"
 
 
