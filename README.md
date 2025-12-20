@@ -51,7 +51,7 @@ spec:
     - key: MY_ENVVAR
       projectId: "gcp-proj-id"  # GSM Secret project ID
       secretId: my-secret       # GSM secret name
-      version: "latest"         # recommend pinning a version for true “static”
+      version: "1"              # recommend pinning a version for true “static”
   # oidc_project_number is defined below
   wifAudience: "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
 ```
