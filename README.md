@@ -24,12 +24,12 @@ Tradeoffs:
 `gsm-operator` manages `GSMSecret` custom resources that materialize Google Secret Manager entries into Kubernetes `Secret` objects.
 
 
-## Confiugration
+## Configration
 
 To configure environment variables used by the setup examples:
 
 ```sh
-cp .env.sample .env          # copy the template
+cp env.sample .env          # copy the template
 # Modify the file
 . .env
 ```
@@ -39,17 +39,17 @@ cp .env.sample .env          # copy the template
 Example `GSMSecret`:
 
 ```yaml
-apiVersion: secrets.wayfair.com/v1alpha1
+apiVersion: secrets.pize.com/v1alpha1
 kind: GSMSecret
 metadata:
   name: my-gsm-secrets
-  namespace: app-namespace
+  namespace: gsmsecret-test-ns
 spec:
   targetSecret:
     name: my-secret             # name of K8s Secret
   gsmSecrets:
     - key: MY_ENVVAR
-      projectId: "wf-gcp-prod"  # GSM Secret project ID
+      projectId: "gcp-proj-id"  # GSM Secret project ID
       secretId: my-secret       # GSM secret name
       version: "latest"         # recommend pinning a version for true “static”
   # oidc_project_number is defined below
@@ -125,6 +125,7 @@ echo "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/g
 ### Prerequisites
 - go version v1.24.6+
 - docker version 17.03+.
+- docker buildx v0.30.1+ (if using ARM)
 - kubectl version v1.11.3+.
 - Access to a Kubernetes v1.11.3+ cluster.
 
@@ -133,38 +134,21 @@ echo "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/g
 
 1. The artifact registry exists.
 2. You have permission to write to the registry.
-3. The Kyverno namespace & the SA `nodes-plat-dev-c1-dsm1@wf-gcp-us-plat-k8s-dev.iam.gserviceaccount.com` must be able to read the registry:
-
-nodes-plat-dev-c1-dsm1@wf-gcp-us-plat-k8s-dev.iam.gserviceaccount.com
-
-```sh
-gcloud artifacts repositories add-iam-policy-binding gsm-operator \
-    --project=wf-gcp-us-plat-gar-dev \
-    --location=us \
-    --role="roles/artifactregistry.reader" \
-    --member="principal://iam.googleapis.com/projects/659149818238/locations/global/workloadIdentityPools/wf-gcp-us-plat-k8s-dev.svc.id.goog/subject/ns/kyverno/sa/kyverno-admission-controller"
-gcloud artifacts repositories add-iam-policy-binding gsm-operator \
-    --project=wf-gcp-us-plat-gar-dev \
-    --location=us \
-    --role="roles/artifactregistry.reader" \
-    --member="serviceAccount:nodes-plat-dev-c1-dsm1@wf-gcp-us-plat-k8s-dev.iam.gserviceaccount.com"
-```
 
 **Setup:**
 
-TODO: `docker buildx build --platform linux/amd64 --push -t us-docker.pkg.dev/wf-gcp-us-plat-gar-dev/gsm-operator/gsm-operator:1f18297 .`
-
-```sh
-registry="us-docker.pkg.dev/wf-gcp-us-plat-gar-dev/gsm-operator"
-tag=$(git rev-parse --short HEAD)
-docker login us-docker.pkg.dev
-```
-
 **Build and push your image to the location specified by `IMG`:**
 
+**For arm64**, to build **only** `linux/amd64`, override `PLATFORMS` (see `Makefile` `docker-buildx` target):
+
 ```sh
-make docker-build docker-push IMG=${registry}/gsm-operator:${tag}
-bash attest_image.bash ${registry}/gsm-operator:${tag}
+make docker-buildx IMG=${REGISTRY}/gsm-operator:${IMAGE_TAG} PLATFORMS=linux/amd64
+```
+
+Otherwise:
+
+```sh
+make docker-build docker-push IMG=${REGISTRY}/gsm-operator:${IMAGE_TAG}
 ```
 
 **NOTE:** This image ought to be published in the personal registry you specified.
@@ -174,14 +158,12 @@ Make sure you have the proper permission to the registry if the above commands d
 **Install the CRDs into the cluster:**
 
 ```sh
-kubectl config use-context "plat-dev-c1-dsm1"
 make install
 ```
 
 **Deploy the Manager to the cluster with the image specified by `IMG`:**
 
 ```sh
-kubectl config use-context "plat-dev-c1-dsm1"
 make deploy IMG=${registry}/gsm-operator:${tag}
 ```
 
@@ -190,14 +172,14 @@ privileges or be logged in as admin.
 
 **Create instances of your solution**
 
-The sample assumes GCP project `wf-gcp-us-cloud-plats-mcp-dev`, namespace `gsmsecret-test-ns` on `plat-dev-c1-dsm1`, and a secret called `bogus-test`.
+The sample assumes GCP project `${SECRETS_PROJECT_ID}`, namespace `gsmsecret-test-ns` on `${CLUSTER_NAME}`, and a secret called `bogus-test`.
 
 1. Create a bogus secret if it does not exist:
 
 ```sh
 printf "testing123" | gcloud secrets create bogus-test \
     --data-file=- \
-    --project=wf-gcp-us-cloud-plats-mcp-dev \
+    --project=${SECRETS_PROJECT_ID} \
     --replication-policy=automatic
 ```
 
@@ -205,9 +187,9 @@ printf "testing123" | gcloud secrets create bogus-test \
 
 ```sh
 gcloud secrets add-iam-policy-binding bogus-test \
-    --project=wf-gcp-us-cloud-plats-mcp-dev \
+    --project=${SECRETS_PROJECT_ID} \
     --role="roles/secretmanager.secretAccessor" \
-    --member="principal://iam.googleapis.com/projects/659149818238/locations/global/workloadIdentityPools/wf-gcp-us-plat-k8s-dev.svc.id.goog/subject/ns/gsmsecret-test-ns/sa/default"
+    --member="principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:gsm-reader"
 ```
 
 3. You can apply the samples (examples) from the config/sample:

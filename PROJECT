@@ -3,19 +3,19 @@
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
 cliVersion: 4.10.1
-domain: wayfair.com
+domain: pize.com
 layout:
 - go.kubebuilder.io/v4
 projectName: gsm-operator
-repo: github.com/wayfair-shared/gsm-operator
+repo: github.com/zeraholladay/gsm-operator
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: wayfair.com
-  group: secrets.wayfair.com
+  domain: pize.com
+  group: secrets.pize.com
   kind: GSMSecret
-  path: github.com/wayfair-shared/gsm-operator/api/v1alpha1
+  path: github.com/zeraholladay/gsm-operator/api/v1alpha1
   version: v1alpha1
 version: "3"

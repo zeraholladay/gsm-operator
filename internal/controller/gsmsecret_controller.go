@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	secretswayfaircomv1alpha1 "github.com/wayfair-shared/gsm-operator/api/v1alpha1"
+	secretspizecomv1alpha1 "github.com/zeraholladay/gsm-operator/api/v1alpha1"
 )
 
 // GSMSecretReconciler reconciles a GSMSecret object
@@ -36,16 +36,16 @@ type GSMSecretReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=secrets.wayfair.com,resources=gsmsecrets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=secrets.wayfair.com,resources=gsmsecrets/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=secrets.wayfair.com,resources=gsmsecrets/finalizers,verbs=update
+// +kubebuilder:rbac:groups=secrets.pize.com,resources=gsmsecrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=secrets.pize.com,resources=gsmsecrets/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=secrets.pize.com,resources=gsmsecrets/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *GSMSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 
 	// 1. Load the GSMSecret instance.
-	var gsm secretswayfaircomv1alpha1.GSMSecret
+	var gsm secretspizecomv1alpha1.GSMSecret
 	if err := r.Get(ctx, req.NamespacedName, &gsm); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Resource deleted; nothing to do.
@@ -115,7 +115,7 @@ func (r *GSMSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // SetupWithManager sets up the controller with the Manager.
 func (r *GSMSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&secretswayfaircomv1alpha1.GSMSecret{}).
+		For(&secretspizecomv1alpha1.GSMSecret{}).
 		Named("gsmsecret").
 		Complete(r)
 }

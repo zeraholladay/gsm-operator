@@ -1,4 +1,4 @@
-module github.com/wayfair-shared/gsm-operator
+module github.com/zeraholladay/gsm-operator
 
 go 1.24.6
 

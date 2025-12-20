@@ -7,7 +7,7 @@ import (
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 
-	secretswayfaircomv1alpha1 "github.com/wayfair-shared/gsm-operator/api/v1alpha1"
+	secretspizecomv1alpha1 "github.com/zeraholladay/gsm-operator/api/v1alpha1"
 )
 
 // AccessSecretPayload reads a Secret Manager secret version and returns the raw payload bytes.
@@ -42,7 +42,7 @@ type KeyedSecretPayload struct {
 // for each GSMSecretEntry, returning the data keyed by the target Secret key.
 func FetchGSMSecretPayloads(
 	ctx context.Context,
-	entries []secretswayfaircomv1alpha1.GSMSecretEntry,
+	entries []secretspizecomv1alpha1.GSMSecretEntry,
 ) ([]KeyedSecretPayload, error) {
 	if len(entries) == 0 {
 		return nil, nil

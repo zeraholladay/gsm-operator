@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - secrets.wayfair.com
+  - secrets.pize.com
   resources:
   - gsmsecrets
   verbs:
@@ -25,13 +25,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - secrets.wayfair.com
+  - secrets.pize.com
   resources:
   - gsmsecrets/finalizers
   verbs:
   - update
 - apiGroups:
-  - secrets.wayfair.com
+  - secrets.pize.com
   resources:
   - gsmsecrets/status
   verbs:

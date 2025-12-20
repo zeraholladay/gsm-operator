@@ -32,3 +32,4 @@ go.work
 manager
 
 .env
+scripts/attestations_env.bash

@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	secretswayfaircomv1alpha1 "github.com/wayfair-shared/gsm-operator/api/v1alpha1"
+	secretspizecomv1alpha1 "github.com/zeraholladay/gsm-operator/api/v1alpha1"
 )
 
 var _ = Describe("GSMSecret Controller", func() {
@@ -40,13 +40,13 @@ var _ = Describe("GSMSecret Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		gsmsecret := &secretswayfaircomv1alpha1.GSMSecret{}
+		gsmsecret := &secretspizecomv1alpha1.GSMSecret{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind GSMSecret")
 			err := k8sClient.Get(ctx, typeNamespacedName, gsmsecret)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &secretswayfaircomv1alpha1.GSMSecret{
+				resource := &secretspizecomv1alpha1.GSMSecret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -59,7 +59,7 @@ var _ = Describe("GSMSecret Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &secretswayfaircomv1alpha1.GSMSecret{}
+			resource := &secretspizecomv1alpha1.GSMSecret{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
