@@ -164,7 +164,7 @@ make install
 **Deploy the Manager to the cluster with the image specified by `IMG`:**
 
 ```sh
-make deploy IMG=${registry}/gsm-operator:${tag}
+make deploy IMG=${REGISTRY}/gsm-operator:${TAG}
 ```
 
 > **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
@@ -228,7 +228,7 @@ Following the options to release and provide this solution to the users.
 1. Build the installer for the image built and published in the registry:
 
 ```sh
-make build-installer IMG=${registry}/gsm-operator:${tag}
+make build-installer IMG=${REGISTRY}/gsm-operator:${TAG}
 ```
 
 **NOTE:** The makefile target mentioned above generates an 'install.yaml'
