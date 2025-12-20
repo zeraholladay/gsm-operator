@@ -195,7 +195,7 @@ gcloud secrets add-iam-policy-binding bogus-test \
 3. You can apply the samples (examples) from the config/sample:
 
 ```sh
-kubectl apply -k config/samples/
+envsubst < config/samples/secrets.pize.com_v1alpha1_gsmsecret.yaml | kubectl apply -f -
 ```
 
 >**NOTE**: Ensure that the samples has default values to test it out.
