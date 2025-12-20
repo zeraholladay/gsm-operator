@@ -46,20 +46,34 @@ func (r *GSMSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// 1. Load the GSMSecret instance.
 	var gsm secretspizecomv1alpha1.GSMSecret
+	log.Info("starting reconcile for GSMSecret", "name", req.Name, "namespace", req.Namespace)
 	if err := r.Get(ctx, req.NamespacedName, &gsm); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Resource deleted; nothing to do.
+			log.V(1).Info("GSMSecret resource not found; assuming it was deleted", "name", req.Name, "namespace", req.Namespace)
 			return ctrl.Result{}, nil
 		}
+		log.Error(err, "failed to fetch GSMSecret from API server", "name", req.Name, "namespace", req.Namespace)
 		return ctrl.Result{}, err
 	}
 
+	log.Info("reconciling GSMSecret",
+		"name", gsm.Name,
+		"namespace", gsm.Namespace,
+		"specTargetSecret", gsm.Spec.TargetSecret.Name,
+	)
+
 	// 2. Fetch payloads from Google Secret Manager for each gsmSecrets entry.
-	payloads, err := FetchGSMSecretPayloads(ctx, gsm.Spec.Secrets)
+	payloads, err := FetchGSMSecretPayloads(ctx, gsm)
 	if err != nil {
 		log.Error(err, "failed to fetch GSM payloads")
 		return ctrl.Result{}, err
 	}
+	log.Info("fetched GSM payloads for GSMSecret",
+		"name", gsm.Name,
+		"namespace", gsm.Namespace,
+		"payloadCount", len(payloads),
+	)
 
 	// 3. Build the desired Kubernetes Secret from those payloads.
 	secretName := gsm.Spec.TargetSecret.Name
@@ -89,10 +103,12 @@ func (r *GSMSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err := r.Get(ctx, key, &existing); err != nil {
 		// Return error if anything other than not found?
 		if !apierrors.IsNotFound(err) {
+			log.Error(err, "failed to get existing Secret", "secret", key)
 			return ctrl.Result{}, err
 		}
 
 		// The secret does not exists, so create it.
+		log.Info("creating Kubernetes Secret for GSMSecret", "secret", key)
 		if err := r.Create(ctx, desiredSecret); err != nil {
 			log.Error(err, "failed to create Secret", "secret", key)
 			return ctrl.Result{}, err
@@ -102,6 +118,7 @@ func (r *GSMSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		existing.Data = desiredSecret.Data
 		existing.Type = desiredSecret.Type
 
+		log.Info("updating Kubernetes Secret for GSMSecret", "secret", key)
 		if err := r.Update(ctx, &existing); err != nil {
 			log.Error(err, "failed to update Secret", "secret", key)
 			return ctrl.Result{}, err

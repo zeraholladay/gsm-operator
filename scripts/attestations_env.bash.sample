@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# Sample configuration for Binary Authorization attestations.
+# Copy this file to 'attestations_env.bash', adjust the values, then run:
+#   source scripts/attestations_env.bash
+# before invoking 'scripts/attestations.bash'.
+
+# Project that owns the attestor and KMS key
+ATTESTOR_PROJECT_ID="<attestor project>"
+ATTESTOR_NAME="decomposed-prod-attestor"
+
+# GAR project is separate from the attestor project (matches GAR_PROJECT in repo)
+GAR_PROJECT_ID="wf-gcp-us-plat-gar-prod"
+
+# KMS key that holds the attestor's private key (matches PROD_* in repo)
+KMS_PROJECT_ID="wf-gcp-us-plat-attestor-prod"
+KMS_LOCATION="global"
+KMS_KEYRING="decomposed-prod-key-ring"
+KMS_KEY="decomposed-prod-attestor-key"
+KMS_VERSION="1"
+
+

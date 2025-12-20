@@ -106,7 +106,8 @@ gcloud iam workload-identity-pools providers create-oidc gsm-operator-provider \
     --project="${OIDC_PROJECT_ID}"
 
 ### 4. Output wifAudience
-echo "wifAudience is //iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
+export WIF_AUDIENCE="//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
+echo "wifAudience is $WIF_AUDIENCE"
 
 ### 5. IAM Binding Guidance
 echo IAM Binding Guidance
@@ -120,7 +121,33 @@ echo "... or Bind this Principal to your GSA if using Service Account impersonat
 echo "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:gsm-reader"
 ```
 
-## Getting Started
+To **validate** that the Workload Identity Pool and Provider were created:
+
+```sh
+gcloud iam workload-identity-pools describe gsm-operator-pool \
+    --location="global" \
+    --project="${OIDC_PROJECT_ID}"
+
+gcloud iam workload-identity-pools providers describe gsm-operator-provider \
+    --location="global" \
+    --workload-identity-pool="gsm-operator-pool" \
+    --project="${OIDC_PROJECT_ID}"
+```
+
+To **remove** the Workload Identity Pool and Provider created above:
+
+```sh
+gcloud iam workload-identity-pools providers delete gsm-operator-provider \
+    --location="global" \
+    --workload-identity-pool="gsm-operator-pool" \
+    --project="${OIDC_PROJECT_ID}"
+
+gcloud iam workload-identity-pools delete gsm-operator-pool \
+    --location="global" \
+    --project="${OIDC_PROJECT_ID}"
+```
+
+## Install & Run Sample
 
 ### Prerequisites
 - go version v1.24.6+
@@ -134,6 +161,21 @@ echo "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/g
 
 1. The artifact registry exists.
 2. You have permission to write to the registry.
+3. A test Secret in Secret Manager exists and is accessible from the operator namespace:
+
+```sh
+printf "testing123" | gcloud secrets create bogus-test \
+    --data-file=- \
+    --project=${SECRETS_PROJECT_ID} \
+    --replication-policy=automatic
+```
+
+```sh
+gcloud secrets add-iam-policy-binding bogus-test \
+    --project=${SECRETS_PROJECT_ID} \
+    --role="roles/secretmanager.secretAccessor" \
+    --member="principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:gsm-reader"
+```
 
 **Setup:**
 
@@ -158,13 +200,15 @@ Make sure you have the proper permission to the registry if the above commands d
 **Install the CRDs into the cluster:**
 
 ```sh
+kubectl config current-context # check: this runs kubectl
 make install
 ```
 
 **Deploy the Manager to the cluster with the image specified by `IMG`:**
 
 ```sh
-make deploy IMG=${REGISTRY}/gsm-operator:${TAG}
+kubectl config current-context # check: this runs kubectl
+make deploy IMG=${REGISTRY}/gsm-operator:${IMAGE_TAG}
 ```
 
 > **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
@@ -172,27 +216,9 @@ privileges or be logged in as admin.
 
 **Create instances of your solution**
 
-The sample assumes GCP project `${SECRETS_PROJECT_ID}`, namespace `gsmsecret-test-ns` on `${CLUSTER_NAME}`, and a secret called `bogus-test`.
+The sample assumes GCP project `${SECRETS_PROJECT_ID}`, namespace `gsmsecret-test-ns` on `${CLUSTER_NAME}`, and a secret called `bogus-test` (created in the prerequisites above).
 
-1. Create a bogus secret if it does not exist:
-
-```sh
-printf "testing123" | gcloud secrets create bogus-test \
-    --data-file=- \
-    --project=${SECRETS_PROJECT_ID} \
-    --replication-policy=automatic
-```
-
-2. Grant `gsmsecret-test-ns` permission to access the secret:
-
-```sh
-gcloud secrets add-iam-policy-binding bogus-test \
-    --project=${SECRETS_PROJECT_ID} \
-    --role="roles/secretmanager.secretAccessor" \
-    --member="principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:gsm-reader"
-```
-
-3. You can apply the samples (examples) from the config/sample:
+1. You can apply the samples (examples) from the config/sample:
 
 ```sh
 envsubst < config/samples/secrets.pize.com_v1alpha1_gsmsecret.yaml | kubectl apply -f -
@@ -204,7 +230,7 @@ envsubst < config/samples/secrets.pize.com_v1alpha1_gsmsecret.yaml | kubectl app
 **Delete the instances (CRs) from the cluster:**
 
 ```sh
-kubectl delete -k config/samples/
+envsubst < config/samples/secrets.pize.com_v1alpha1_gsmsecret.yaml | kubectl delete -f -
 ```
 
 **Delete the APIs(CRDs) from the cluster:**
@@ -228,7 +254,7 @@ Following the options to release and provide this solution to the users.
 1. Build the installer for the image built and published in the registry:
 
 ```sh
-make build-installer IMG=${REGISTRY}/gsm-operator:${TAG}
+make build-installer IMG=${REGISTRY}/gsm-operator:${IMAGE_TAG}
 ```
 
 **NOTE:** The makefile target mentioned above generates an 'install.yaml'
