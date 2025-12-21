@@ -54,6 +54,9 @@ var _ = Describe("GSMSecret Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      resourceName,
 					Namespace: "default",
+					Annotations: map[string]string{
+						secretspizecomv1alpha1.AnnotationWIFAudience: "//iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/test-pool/providers/test-provider",
+					},
 				},
 				Spec: secretspizecomv1alpha1.GSMSecretSpec{
 					TargetSecret: secretspizecomv1alpha1.GSMSecretTargetSecret{
@@ -67,7 +70,6 @@ var _ = Describe("GSMSecret Controller", func() {
 							Version:   "latest",
 						},
 					},
-					WIFAudience: "//iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/test-pool/providers/test-provider",
 				},
 			}
 			Expect(k8sClient.Create(ctx, resource)).To(Succeed())

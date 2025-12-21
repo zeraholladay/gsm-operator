@@ -1,7 +1,6 @@
 package v1alpha1
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,55 +19,15 @@ func TestGSMSecretSpecTargetSecretIsRequired(t *testing.T) {
 	}
 }
 
-// KSA default and validation should match the kubebuilder markers.
-func TestGSMSecretSpecKSADefaultAndMinLength(t *testing.T) {
+// Service account overrides should now live in annotations, not spec.
+func TestGSMSecretSpecOmitsServiceAccountFields(t *testing.T) {
 	specSchema := loadSpecSchema(t)
 
-	prop, ok := specSchema.Properties["KSA"]
-	if !ok {
-		t.Fatalf("KSA property missing from schema")
+	if _, ok := specSchema.Properties["KSA"]; ok {
+		t.Fatalf("unexpected KSA property in spec; service account overrides should move to annotations")
 	}
-
-	if prop.MinLength == nil || *prop.MinLength != 1 {
-		t.Fatalf("KSA minLength = %v, want 1", prop.MinLength)
-	}
-
-	if prop.Default == nil {
-		t.Fatalf("KSA missing default value")
-	}
-
-	var defaultVal string
-	if err := json.Unmarshal(prop.Default.Raw, &defaultVal); err != nil {
-		t.Fatalf("failed to unmarshal KSA default: %v", err)
-	}
-	if defaultVal != "gsm-reader" {
-		t.Fatalf("KSA default = %q, want %q", defaultVal, "gsm-reader")
-	}
-}
-
-// GSA default and validation should match the kubebuilder markers.
-func TestGSMSecretSpecGSADefaultAndMinLength(t *testing.T) {
-	specSchema := loadSpecSchema(t)
-
-	prop, ok := specSchema.Properties["GSA"]
-	if !ok {
-		t.Fatalf("GSA property missing from schema")
-	}
-
-	if prop.MinLength == nil || *prop.MinLength != 1 {
-		t.Fatalf("GSA minLength = %v, want 1", prop.MinLength)
-	}
-
-	if prop.Default == nil {
-		t.Fatalf("GSA missing default value")
-	}
-
-	var defaultVal string
-	if err := json.Unmarshal(prop.Default.Raw, &defaultVal); err != nil {
-		t.Fatalf("failed to unmarshal GSA default: %v", err)
-	}
-	if defaultVal != "gsm-reader" {
-		t.Fatalf("GSA default = %q, want %q", defaultVal, "gsm-reader")
+	if _, ok := specSchema.Properties["GSA"]; ok {
+		t.Fatalf("unexpected GSA property in spec; service account overrides should move to annotations")
 	}
 }
 
@@ -91,21 +50,12 @@ func TestGSMSecretSpecSecretsMinItemsAndRequired(t *testing.T) {
 	}
 }
 
-// wifAudience is optional but present as a string field.
-func TestGSMSecretSpecWIFAudienceIsOptional(t *testing.T) {
+// WIF audience should be provided via annotation, not spec.
+func TestGSMSecretSpecOmitsWIFAudience(t *testing.T) {
 	specSchema := loadSpecSchema(t)
 
-	prop, ok := specSchema.Properties["wifAudience"]
-	if !ok {
-		t.Fatalf("wifAudience property missing from schema")
-	}
-	if prop.Type != "string" {
-		t.Fatalf("wifAudience type = %q, want %q", prop.Type, "string")
-	}
-
-	required := requiredFields(specSchema.Required)
-	if _, ok := required["wifAudience"]; ok {
-		t.Fatalf("wifAudience unexpectedly marked as required")
+	if _, ok := specSchema.Properties["wifAudience"]; ok {
+		t.Fatalf("unexpected wifAudience property in spec; should be provided via annotation")
 	}
 }
 
@@ -140,6 +90,62 @@ func TestGSMSecretEntryVersionRequiredNoDefault(t *testing.T) {
 	required := requiredFields(entry.Required)
 	if _, ok := required["version"]; !ok {
 		t.Fatalf("version is not marked as required; required fields: %v", entry.Required)
+	}
+}
+
+// gsmSecrets entries require key, projectId, secretId with minLength=1.
+func TestGSMSecretEntryRequiredCoreFields(t *testing.T) {
+	specSchema := loadSpecSchema(t)
+
+	prop, ok := specSchema.Properties["gsmSecrets"]
+	if !ok {
+		t.Fatalf("gsmSecrets property missing from schema")
+	}
+
+	entry := prop.Items.Schema
+
+	fields := []struct {
+		name string
+	}{
+		{name: "key"},
+		{name: "projectId"},
+		{name: "secretId"},
+	}
+
+	required := requiredFields(entry.Required)
+	for _, f := range fields {
+		f := f
+		t.Run(f.name, func(t *testing.T) {
+			p, ok := entry.Properties[f.name]
+			if !ok {
+				t.Fatalf("%s property missing from gsmSecrets entry schema", f.name)
+			}
+			if p.MinLength == nil || *p.MinLength != 1 {
+				t.Fatalf("%s minLength = %v, want 1", f.name, p.MinLength)
+			}
+			if _, ok := required[f.name]; !ok {
+				t.Fatalf("%s is not marked as required; required fields: %v", f.name, entry.Required)
+			}
+		})
+	}
+}
+
+// targetSecret.name should require minLength=1.
+func TestTargetSecretNameMinLength(t *testing.T) {
+	specSchema := loadSpecSchema(t)
+
+	target, ok := specSchema.Properties["targetSecret"]
+	if !ok {
+		t.Fatalf("targetSecret property missing from schema")
+	}
+
+	nameProp, ok := target.Properties["name"]
+	if !ok {
+		t.Fatalf("name property missing from targetSecret schema")
+	}
+
+	if nameProp.MinLength == nil || *nameProp.MinLength != 1 {
+		t.Fatalf("targetSecret.name minLength = %v, want 1", nameProp.MinLength)
 	}
 }
 

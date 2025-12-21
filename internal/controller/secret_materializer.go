@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"k8s.io/client-go/kubernetes"
 
@@ -51,8 +52,11 @@ func (m *secretMaterializer) getKSA() string {
 	if v := os.Getenv("KSA"); v != "" {
 		return v
 	}
-	if m.gsmSecret.Spec.KSA != "" {
-		return m.gsmSecret.Spec.KSA
+
+	if ann := m.gsmSecret.GetAnnotations(); ann != nil {
+		if v := strings.TrimSpace(ann[secretspizecomv1alpha1.AnnotationKSA]); v != "" {
+			return v
+		}
 	}
 	return "gsm-reader" // sane default for small clusters
 }
@@ -61,8 +65,11 @@ func (m *secretMaterializer) getWIFAudience() (string, error) {
 	if v := os.Getenv("WIFAUDIENCE"); v != "" {
 		return v, nil
 	}
-	if m.gsmSecret.Spec.WIFAudience != "" {
-		return m.gsmSecret.Spec.WIFAudience, nil
+
+	if ann := m.gsmSecret.GetAnnotations(); ann != nil {
+		if v := strings.TrimSpace(ann[secretspizecomv1alpha1.AnnotationWIFAudience]); v != "" {
+			return v, nil
+		}
 	}
 	return "", fmt.Errorf("WIFAudience not set: set WIFAUDIENCE env var or spec.wifAudience")
 }

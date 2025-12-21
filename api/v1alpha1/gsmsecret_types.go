@@ -16,8 +16,13 @@ limitations under the License.
 
 package v1alpha1
 
-import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+// Annotation keys for service account overrides.
+const (
+	AnnotationKSA         = "secrets.pize.com/ksa"
+	AnnotationGSA         = "secrets.pize.com/gsa"
+	AnnotationWIFAudience = "secrets.pize.com/wif-audience"
 )
 
 // GSMSecretSpec defines the desired state of GSMSecret.
@@ -25,23 +30,6 @@ type GSMSecretSpec struct {
 	// TargetSecret describes the Kubernetes Secret to create or update.
 	// +kubebuilder:validation:Required
 	TargetSecret GSMSecretTargetSecret `json:"targetSecret"`
-
-	// KSA is the **Kubernetes** ServiceAccount to impersonate for WIF.
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:default:="gsm-reader"
-	KSA string `json:"KSA,omitempty"`
-
-	// FIXME: NOT YET IMPLEMENTED!!!
-	// GSA is the **GCP** ServiceAccount to impersonate for WIF.
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:default:="gsm-reader"
-	GSA string `json:"GSA,omitempty"`
-
-	// WIFAudience is the audience used when exchanging Kubernetes tokens via Google's STS.
-	// Example:
-	// "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
-	// +optional
-	WIFAudience string `json:"wifAudience,omitempty"`
 
 	// Secrets is the list of GSM secrets to materialize into the target Secret.
 	// +kubebuilder:validation:MinItems=1

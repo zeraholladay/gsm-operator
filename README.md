@@ -44,6 +44,11 @@ kind: GSMSecret
 metadata:
   name: my-gsm-secrets
   namespace: gsmsecret-test-ns
+  annotations:
+    # Optional unless not set on the operator by env var WIFAUDIENCE
+    secrets.pize.com/wif-audience: "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider" # oidc_project_number is defined below
+    # secrets.pize.com/ksa: "custom-ksa" # optional: override Kubernetes SA used for WIF
+    # secrets.pize.com/gsa: "my-gsa@example.iam.gserviceaccount.com" # optional: override GCP SA when impersonation is enabled
 spec:
   targetSecret:
     name: my-secret             # name of K8s Secret
@@ -52,8 +57,6 @@ spec:
       projectId: "gcp-proj-id"  # GSM Secret project ID
       secretId: my-secret       # GSM secret name
       version: "1"              # recommend pinning a version for true “static”
-  # oidc_project_number is defined below
-  wifAudience: "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
 ```
 
 Creates a secret:
