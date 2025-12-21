@@ -28,4 +28,3 @@ func TestGetTokenExpSecondsRespectsHigherValue(t *testing.T) {
 		t.Fatalf("expected 1200 from env override, got %d", got)
 	}
 }
-

@@ -51,8 +51,8 @@ func (m *secretMaterializer) getKSA() string {
 	if v := os.Getenv("KSA"); v != "" {
 		return v
 	}
-	if m.gsmSecret.Spec.ServiceAccountName != "" {
-		return m.gsmSecret.Spec.ServiceAccountName
+	if m.gsmSecret.Spec.KSA != "" {
+		return m.gsmSecret.Spec.KSA
 	}
 	return "gsm-reader" // sane default for small clusters
 }
