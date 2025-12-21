@@ -31,7 +31,7 @@ import (
 	secretspizecomv1alpha1 "github.com/zeraholladay/gsm-operator/api/v1alpha1"
 )
 
-// GSMSecretReconciler reconciles a GSMSecret object
+// GSMSecretReconciler reconciles a GSMSecret object.
 type GSMSecretReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme

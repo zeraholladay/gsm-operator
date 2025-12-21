@@ -28,8 +28,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// getCredentials builds Google credentials for the current GSMSecret.
-// The implementation will be provided in a future change.
+// getCredentials builds Google credentials for the current GSMSecret by
+// requesting a KSA token and exchanging it via Workload Identity Federation.
 func (m *secretMaterializer) getCredentials(ctx context.Context) (*google.Credentials, error) {
 	log := logf.FromContext(ctx).WithValues(
 		"gsmsecret", m.gsmSecret.Name,
@@ -54,7 +54,7 @@ func (m *secretMaterializer) getCredentials(ctx context.Context) (*google.Creden
 	return creds, nil
 }
 
-// GCPCredsFromK8sToken turns a Kubernetes ServiceAccount JWT plus a Workload
+// gCPCredsFromK8sToken turns a Kubernetes ServiceAccount JWT plus a Workload
 // Identity Audience into a google.Credentials object that can be passed to
 // Google client libraries (e.g. Secret Manager). The current implementation
 // performs a direct STS token exchange and does not support GSA impersonation.

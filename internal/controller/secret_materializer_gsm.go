@@ -44,7 +44,7 @@ func (m *secretMaterializer) resolvePayloads(ctx context.Context) error {
 		return nil
 	}
 
-	// STEP 1: FIXME
+	// STEP 1: Exchange the KSA token for Google credentials via WIF.
 	log.Info("exchanging Kubernetes ServiceAccount token via Workload Identity Federation")
 	creds, err := m.getCredentials(ctx)
 	if err != nil {

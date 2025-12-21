@@ -31,8 +31,8 @@ import (
 )
 
 // requestKSAToken uses the Kubernetes TokenRequest API to obtain a signed JWT
-// for the given ServiceAccount. The token is audience‑restricted and
-// short‑lived according to the provided parameters.
+// for the given ServiceAccount. The token is audience-restricted and
+// short-lived according to the provided parameters.
 func (m *secretMaterializer) requestKSAToken(ctx context.Context) (string, error) {
 	namespace := m.gsmSecret.Namespace
 	ksa := m.getKSA()
@@ -51,8 +51,7 @@ func (m *secretMaterializer) requestKSAToken(ctx context.Context) (string, error
 		log.Error(fmt.Errorf("missing namespace or ksaName"), "namespace and ksaName are required")
 		return "", fmt.Errorf("namespace and ksaName are required")
 	}
-	// Derive durations from the materializer config helpers, falling back to
-	// sensible defaults if they are zero or negative.
+	// STEP 1: Derive expiration and timeout from config, falling back to defaults when unset.
 	expiration := time.Duration(m.getTokenExpSeconds()) * time.Second
 	if expiration <= 0 {
 		expiration = 10 * time.Minute

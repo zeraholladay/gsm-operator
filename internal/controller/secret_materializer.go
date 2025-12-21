@@ -26,6 +26,13 @@ import (
 	secretspizecomv1alpha1 "github.com/zeraholladay/gsm-operator/api/v1alpha1"
 )
 
+const (
+	// Kubernetes TokenRequest API enforces a minimum expiration of 10 minutes.
+	minTokenExpSeconds uint64 = 10 * 60
+	// Default to the Kubernetes minimum unless explicitly overridden higher.
+	defaultTokenExpSeconds uint64 = minTokenExpSeconds
+)
+
 // secretMaterializer holds the dependencies and state required to materialize
 // a Kubernetes Secret from a GSMSecret resource.
 type secretMaterializer struct {
@@ -60,13 +67,17 @@ func (m *secretMaterializer) getWIFAudience() (string, error) {
 	return "", fmt.Errorf("WIFAudience not set: set WIFAUDIENCE env var or spec.wifAudience")
 }
 
+// The token may not specify a duration less than 10 minutes
 func (m *secretMaterializer) getTokenExpSeconds() uint64 {
 	if v := os.Getenv("TOKEN_EXP_SECONDS"); v != "" {
 		if parsed, err := strconv.ParseUint(v, 10, 64); err == nil && parsed > 0 {
+			if parsed < minTokenExpSeconds {
+				return minTokenExpSeconds
+			}
 			return parsed
 		}
 	}
-	return 5 * 60
+	return defaultTokenExpSeconds
 }
 
 func (m *secretMaterializer) getHTTPRequestTimeoutSeconds() uint64 {
