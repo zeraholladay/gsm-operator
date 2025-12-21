@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -44,10 +45,9 @@ type GSMSecretReconciler struct {
 func (r *GSMSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 
-	// 1. Load the GSMSecret instance.
-	var gsm secretspizecomv1alpha1.GSMSecret
-	log.Info("starting reconcile for GSMSecret", "name", req.Name, "namespace", req.Namespace)
-	if err := r.Get(ctx, req.NamespacedName, &gsm); err != nil {
+	// 1. FETCH: Load the GSMSecret instance.
+	var gsmSecret secretspizecomv1alpha1.GSMSecret
+	if err := r.Get(ctx, req.NamespacedName, &gsmSecret); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Resource deleted; nothing to do.
 			log.V(1).Info("GSMSecret resource not found; assuming it was deleted", "name", req.Name, "namespace", req.Namespace)
@@ -57,76 +57,89 @@ func (r *GSMSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	log.Info("reconciling GSMSecret",
-		"name", gsm.Name,
-		"namespace", gsm.Namespace,
-		"specTargetSecret", gsm.Spec.TargetSecret.Name,
+	log.Info("starting reconciliation",
+		"name", gsmSecret.Name,
+		"namespace", gsmSecret.Namespace,
+		"specTargetSecret", gsmSecret.Spec.TargetSecret.Name,
 	)
 
-	// 2. Fetch payloads from Google Secret Manager for each gsmSecrets entry.
-	payloads, err := FetchGSMSecretPayloads(ctx, gsm)
-	if err != nil {
+	// 2. MATERIALIZE: Initialize the helper with one clean call.
+	m := r.newSecretMaterializer(&gsmSecret)
+
+	// Delegate the heavy lifting to the materializer.
+	if err := m.resolvePayloads(ctx); err != nil {
 		log.Error(err, "failed to fetch GSM payloads")
 		return ctrl.Result{}, err
 	}
 	log.Info("fetched GSM payloads for GSMSecret",
-		"name", gsm.Name,
-		"namespace", gsm.Namespace,
-		"payloadCount", len(payloads),
+		"name", gsmSecret.Name,
+		"namespace", gsmSecret.Namespace,
+		"payloadCount", len(m.payloads),
 	)
 
-	// 3. Build the desired Kubernetes Secret from those payloads.
-	secretName := gsm.Spec.TargetSecret.Name
-	if secretName == "" {
-		secretName = gsm.Name
-	}
-
-	desiredSecret, err := BuildOpaqueSecret(secretName, gsm.Namespace, payloads)
+	// Build the desired Kubernetes Secret from those payloads.
+	desiredSecret, err := m.buildOpaqueSecret(ctx)
 	if err != nil {
 		log.Error(err, "failed to build Secret object")
 		return ctrl.Result{}, err
 	}
 
-	// Ensure the Secret is owned by this GSMSecret for garbage collection.
-	if err := ctrl.SetControllerReference(&gsm, desiredSecret, r.Scheme); err != nil {
+	// 3. APPLY: Ensure the cluster state matches our desired state.
+	if err := r.applySecret(ctx, &gsmSecret, desiredSecret); err != nil {
+		log.Error(err, "failed to apply Kubernetes Secret")
 		return ctrl.Result{}, err
 	}
 
-	// 4. Create or update the Secret in the cluster.
+	log.Info("reconciliation complete")
+	return ctrl.Result{}, nil
+}
+
+// newSecretMaterializer acts as a factory/constructor.
+// It hides the wiring of the client, scheme, and raw data from the main loop.
+func (r *GSMSecretReconciler) newSecretMaterializer(gsm *secretspizecomv1alpha1.GSMSecret) *secretMaterializer {
+	return &secretMaterializer{
+		gsmSecret:    gsm,
+		kubeClientFn: getInClusterKubeClient,
+		// payloads slice is implicitly nil/empty, which is correct for a new instance
+	}
+}
+
+// applySecret handles the generic K8s "Create or Update" logic.
+// This removes the boilerplate from Reconcile, making the flow linear and readable.
+func (r *GSMSecretReconciler) applySecret(ctx context.Context, owner *secretspizecomv1alpha1.GSMSecret, desired *corev1.Secret) error {
+	log := logf.FromContext(ctx)
+
+	// 1. Set OwnerReference so deleting the GSMSecret deletes the generated Secret.
+	if err := ctrl.SetControllerReference(owner, desired, r.Scheme); err != nil {
+		return fmt.Errorf("failed to set controller reference: %w", err)
+	}
+
+	// 2. Check if the secret already exists.
 	var existing corev1.Secret
 	key := types.NamespacedName{
-		Name:      desiredSecret.Name,
-		Namespace: desiredSecret.Namespace,
+		Name:      desired.Name,
+		Namespace: desired.Namespace,
 	}
 
-	// Try to get such a secret:
-	if err := r.Get(ctx, key, &existing); err != nil {
-		// Return error if anything other than not found?
-		if !apierrors.IsNotFound(err) {
-			log.Error(err, "failed to get existing Secret", "secret", key)
-			return ctrl.Result{}, err
-		}
-
-		// The secret does not exists, so create it.
-		log.Info("creating Kubernetes Secret for GSMSecret", "secret", key)
-		if err := r.Create(ctx, desiredSecret); err != nil {
-			log.Error(err, "failed to create Secret", "secret", key)
-			return ctrl.Result{}, err
-		}
-	} else {
-		// Update data if it changed.
-		existing.Data = desiredSecret.Data
-		existing.Type = desiredSecret.Type
-
-		log.Info("updating Kubernetes Secret for GSMSecret", "secret", key)
-		if err := r.Update(ctx, &existing); err != nil {
-			log.Error(err, "failed to update Secret", "secret", key)
-			return ctrl.Result{}, err
-		}
+	err := r.Get(ctx, key, &existing)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err // Actual API error.
 	}
 
-	// No requeue: static materialization as described in the README.
-	return ctrl.Result{}, nil
+	// 3. Create if not found.
+	if apierrors.IsNotFound(err) {
+		log.Info("creating new Kubernetes Secret", "secret", key)
+		return r.Create(ctx, desired)
+	}
+
+	// 4. Update if found.
+	// Note: You might want to compare existing.Data vs desired.Data here to avoid
+	// unnecessary API calls, but a blind Update is safe for correctness.
+	existing.Data = desired.Data
+	existing.Type = desired.Type
+
+	log.Info("updating existing Kubernetes Secret", "secret", key)
+	return r.Update(ctx, &existing)
 }
 
 // SetupWithManager sets up the controller with the Manager.

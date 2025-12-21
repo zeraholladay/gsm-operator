@@ -26,6 +26,11 @@ type GSMSecretSpec struct {
 	// +kubebuilder:validation:Required
 	TargetSecret GSMSecretTargetSecret `json:"targetSecret"`
 
+	// ServiceAccountName is the Kubernetes ServiceAccount to impersonate for WIF.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:default:="gsm-reader"
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
 	// Secrets is the list of GSM secrets to materialize into the target Secret.
 	// +kubebuilder:validation:MinItems=1
 	Secrets []GSMSecretEntry `json:"gsmSecrets"`
