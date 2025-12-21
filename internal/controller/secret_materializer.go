@@ -58,7 +58,7 @@ func (m *secretMaterializer) getKSA() string {
 			return v
 		}
 	}
-	return "default" // sane default for small clusters
+	return "default"
 }
 
 func (m *secretMaterializer) getWIFAudience() (string, error) {
@@ -71,7 +71,7 @@ func (m *secretMaterializer) getWIFAudience() (string, error) {
 			return v, nil
 		}
 	}
-	return "", fmt.Errorf("WIFAudience not set: set WIFAUDIENCE env var or spec.wifAudience")
+	return "", fmt.Errorf("WIFAudience not set: set WIFAUDIENCE env var or annotation %q", secretspizecomv1alpha1.AnnotationWIFAudience)
 }
 
 // The token may not specify a duration less than 10 minutes

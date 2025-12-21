@@ -36,6 +36,13 @@ func (m *secretMaterializer) getCredentials(ctx context.Context) (*google.Creden
 		"namespace", m.gsmSecret.Namespace,
 	)
 
+	// STEP 0: Resolve WIF audience upfront so we fail fast if misconfigured.
+	wifAudience, err := m.getWIFAudience()
+	if err != nil {
+		log.Error(err, "failed to get WIF audience")
+		return nil, fmt.Errorf("get WIF audience: %w", err)
+	}
+
 	// STEP 1: Request a short-lived JWT for the tenant KSA.
 	log.Info("requesting Kubernetes ServiceAccount token for GSM payload fetch")
 	token, err := m.requestKSAToken(ctx)
@@ -46,7 +53,7 @@ func (m *secretMaterializer) getCredentials(ctx context.Context) (*google.Creden
 
 	// STEP 2: Exchange the KSA token for Google credentials via Workload Identity.
 	log.Info("exchanging Kubernetes ServiceAccount token via Workload Identity Federation")
-	creds, err := m.gCPCredsFromK8sToken(ctx, token)
+	creds, err := m.gcpCredsFromK8sToken(ctx, token, wifAudience)
 	if err != nil {
 		log.Error(err, "failed to exchange KSA token for Google credentials")
 		return nil, fmt.Errorf("exchange KSA token for Google credentials: %w", err)
@@ -54,19 +61,15 @@ func (m *secretMaterializer) getCredentials(ctx context.Context) (*google.Creden
 	return creds, nil
 }
 
-// gCPCredsFromK8sToken turns a Kubernetes ServiceAccount JWT plus a Workload
+// gcpCredsFromK8sToken turns a Kubernetes ServiceAccount JWT plus a Workload
 // Identity Audience into a google.Credentials object that can be passed to
 // Google client libraries (e.g. Secret Manager). The current implementation
 // performs a direct STS token exchange and does not support GSA impersonation.
-func (m *secretMaterializer) gCPCredsFromK8sToken(
+func (m *secretMaterializer) gcpCredsFromK8sToken(
 	ctx context.Context,
 	k8sToken string,
+	wifAudience string,
 ) (*google.Credentials, error) {
-	wifAudience, err := m.getWIFAudience()
-	if err != nil {
-		return nil, fmt.Errorf("get WIF audience for GCP credentials: %w", err)
-	}
-
 	log := logf.FromContext(ctx).WithName("gcp_creds_from_k8s").WithValues(
 		"wifAudience", wifAudience,
 	)
@@ -74,7 +77,7 @@ func (m *secretMaterializer) gCPCredsFromK8sToken(
 	// STEP 1: Exchange the Kubernetes ServiceAccount token for a Google access
 	// token via the Workload Identity Federation provider.
 	log.Info("exchanging Kubernetes ServiceAccount token for Google access token via WIF")
-	stsResp, err := m.exchangeK8sTokenWithSTS(ctx, k8sToken)
+	stsResp, err := m.exchangeK8sTokenWithSTS(ctx, k8sToken, wifAudience)
 	if err != nil {
 		log.Error(err, "failed to exchange Kubernetes token via STS")
 		return nil, fmt.Errorf("exchange KSA token via STS: %w", err)
@@ -100,12 +103,7 @@ func (m *secretMaterializer) gCPCredsFromK8sToken(
 
 // exchangeK8sTokenWithSTS exchanges a Kubernetes ServiceAccount JWT for a
 // Google access token using the official STS library.
-func (m *secretMaterializer) exchangeK8sTokenWithSTS(ctx context.Context, k8sToken string) (*sts.GoogleIdentityStsV1ExchangeTokenResponse, error) {
-	wifAudience, err := m.getWIFAudience()
-	if err != nil {
-		return nil, fmt.Errorf("get WIF audience for STS exchange: %w", err)
-	}
-
+func (m *secretMaterializer) exchangeK8sTokenWithSTS(ctx context.Context, k8sToken, wifAudience string) (*sts.GoogleIdentityStsV1ExchangeTokenResponse, error) {
 	// Initialize the STS service.
 	// Note: We use WithoutAuthentication() because we are calling the token
 	// exchange endpoint to *get* credentials. We don't have them yet.
