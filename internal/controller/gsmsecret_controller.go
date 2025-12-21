@@ -159,8 +159,12 @@ func (r *GSMSecretReconciler) applySecret(ctx context.Context, owner *secretspiz
 	}
 
 	// 4. Update if found.
-	// Note: You might want to compare existing.Data vs desired.Data here to avoid
-	// unnecessary API calls, but a blind Update is safe for correctness.
+	// Set controller reference on the existing secret to ensure ownership is
+	// established even for pre-existing secrets (handles adoption scenario).
+	if err := ctrl.SetControllerReference(owner, &existing, r.Scheme); err != nil {
+		return fmt.Errorf("failed to set controller reference on existing secret: %w", err)
+	}
+
 	existing.Data = desired.Data
 	existing.Type = desired.Type
 
