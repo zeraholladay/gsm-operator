@@ -40,6 +40,7 @@ type GSMSecretSpec struct {
 type GSMSecretTargetSecret struct {
 	// Name is the name of the Kubernetes Secret to create or update.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	Name string `json:"name"`
 }
 
@@ -48,20 +49,24 @@ type GSMSecretEntry struct {
 	// Key is the key under which the value will be stored in the target Secret's data.
 	// Example: "MY_ENVVAR".
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9._-]+$`
 	Key string `json:"key"`
 
 	// ProjectID is the GCP project that owns the Secret Manager secret.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z][a-z0-9-]{4,28}[a-z0-9]$`
 	ProjectID string `json:"projectId"`
 
 	// SecretID is the name of the Secret Manager secret.
 	// Example: "my-secret".
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[A-Za-z][A-Za-z0-9_-]{0,253}[A-Za-z0-9]$`
 	SecretID string `json:"secretId"`
 
 	// Version is the Secret Manager secret version to materialize.
 	// Examples: "7" or "latest".
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^(latest|[1-9][0-9]*)$`
 	Version string `json:"version"`
 }
 

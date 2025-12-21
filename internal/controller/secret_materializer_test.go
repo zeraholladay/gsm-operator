@@ -79,8 +79,8 @@ func TestGetKSADefault(t *testing.T) {
 		},
 	}
 
-	if got := m.getKSA(); got != "gsm-reader" {
-		t.Fatalf("expected default KSA gsm-reader, got %q", got)
+	if got := m.getKSA(); got != "default" {
+		t.Fatalf("expected default KSA default, got %q", got)
 	}
 }
 

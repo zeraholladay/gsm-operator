@@ -58,7 +58,7 @@ func (m *secretMaterializer) getKSA() string {
 			return v
 		}
 	}
-	return "gsm-reader" // sane default for small clusters
+	return "default" // sane default for small clusters
 }
 
 func (m *secretMaterializer) getWIFAudience() (string, error) {

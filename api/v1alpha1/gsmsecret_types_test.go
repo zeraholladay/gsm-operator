@@ -130,6 +130,110 @@ func TestGSMSecretEntryRequiredCoreFields(t *testing.T) {
 	}
 }
 
+// gsmSecrets entry key must match allowed pattern.
+func TestGSMSecretEntryKeyPattern(t *testing.T) {
+	specSchema := loadSpecSchema(t)
+
+	prop, ok := specSchema.Properties["gsmSecrets"]
+	if !ok {
+		t.Fatalf("gsmSecrets property missing from schema")
+	}
+	entry := prop.Items.Schema
+
+	keyProp, ok := entry.Properties["key"]
+	if !ok {
+		t.Fatalf("key property missing from gsmSecrets entry schema")
+	}
+
+	const expectedPattern = "^[A-Za-z0-9._-]+$"
+	if keyProp.Pattern != expectedPattern {
+		t.Fatalf("key pattern = %q, want %q", keyProp.Pattern, expectedPattern)
+	}
+}
+
+// gsmSecrets entry projectId must match allowed pattern.
+func TestGSMSecretEntryProjectIDPattern(t *testing.T) {
+	specSchema := loadSpecSchema(t)
+
+	prop, ok := specSchema.Properties["gsmSecrets"]
+	if !ok {
+		t.Fatalf("gsmSecrets property missing from schema")
+	}
+	entry := prop.Items.Schema
+
+	projectProp, ok := entry.Properties["projectId"]
+	if !ok {
+		t.Fatalf("projectId property missing from gsmSecrets entry schema")
+	}
+
+	const expectedPattern = "^[a-z][a-z0-9-]{4,28}[a-z0-9]$"
+	if projectProp.Pattern != expectedPattern {
+		t.Fatalf("projectId pattern = %q, want %q", projectProp.Pattern, expectedPattern)
+	}
+}
+
+// gsmSecrets entry secretId must match allowed pattern.
+func TestGSMSecretEntrySecretIDPattern(t *testing.T) {
+	specSchema := loadSpecSchema(t)
+
+	prop, ok := specSchema.Properties["gsmSecrets"]
+	if !ok {
+		t.Fatalf("gsmSecrets property missing from schema")
+	}
+	entry := prop.Items.Schema
+
+	secretProp, ok := entry.Properties["secretId"]
+	if !ok {
+		t.Fatalf("secretId property missing from gsmSecrets entry schema")
+	}
+
+	const expectedPattern = "^[A-Za-z][A-Za-z0-9_-]{0,253}[A-Za-z0-9]$"
+	if secretProp.Pattern != expectedPattern {
+		t.Fatalf("secretId pattern = %q, want %q", secretProp.Pattern, expectedPattern)
+	}
+}
+
+// gsmSecrets entry version must match allowed pattern.
+func TestGSMSecretEntryVersionPattern(t *testing.T) {
+	specSchema := loadSpecSchema(t)
+
+	prop, ok := specSchema.Properties["gsmSecrets"]
+	if !ok {
+		t.Fatalf("gsmSecrets property missing from schema")
+	}
+	entry := prop.Items.Schema
+
+	versionProp, ok := entry.Properties["version"]
+	if !ok {
+		t.Fatalf("version property missing from gsmSecrets entry schema")
+	}
+
+	const expectedPattern = "^(latest|[1-9][0-9]*)$"
+	if versionProp.Pattern != expectedPattern {
+		t.Fatalf("version pattern = %q, want %q", versionProp.Pattern, expectedPattern)
+	}
+}
+
+// targetSecret.name must match DNS-like pattern.
+func TestTargetSecretNamePattern(t *testing.T) {
+	specSchema := loadSpecSchema(t)
+
+	target, ok := specSchema.Properties["targetSecret"]
+	if !ok {
+		t.Fatalf("targetSecret property missing from schema")
+	}
+
+	nameProp, ok := target.Properties["name"]
+	if !ok {
+		t.Fatalf("name property missing from targetSecret schema")
+	}
+
+	const expectedPattern = "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+	if nameProp.Pattern != expectedPattern {
+		t.Fatalf("targetSecret.name pattern = %q, want %q", nameProp.Pattern, expectedPattern)
+	}
+}
+
 // targetSecret.name should require minLength=1.
 func TestTargetSecretNameMinLength(t *testing.T) {
 	specSchema := loadSpecSchema(t)

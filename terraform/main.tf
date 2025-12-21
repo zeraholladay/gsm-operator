@@ -46,7 +46,7 @@ variable "ksa_namespace" {
 variable "ksa_name" {
   description = "Name of the Kubernetes ServiceAccount that gsm-operator impersonates."
   type        = string
-  default     = "gsm-reader"
+  default     = "default"
 }
 
 ########################
