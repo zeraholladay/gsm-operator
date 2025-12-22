@@ -18,11 +18,12 @@ package v1alpha1
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-// Annotation keys for service account overrides.
+// Annotation keys for configuration overrides.
 const (
 	AnnotationKSA         = "secrets.pize.com/ksa"
 	AnnotationGSA         = "secrets.pize.com/gsa"
 	AnnotationWIFAudience = "secrets.pize.com/wif-audience"
+	AnnotationRelease     = "secrets.pize.com/release"
 )
 
 // GSMSecretSpec defines the desired state of GSMSecret.

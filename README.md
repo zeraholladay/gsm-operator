@@ -23,7 +23,6 @@ Tradeoffs:
 
 `gsm-operator` manages `GSMSecret` custom resources that materialize Google Secret Manager entries into Kubernetes `Secret` objects.
 
-
 ## Configuration
 
 To configure environment variables used by the setup examples:
@@ -80,6 +79,25 @@ Usage:
         name: my-secret
 ...
 ```
+
+### Reconciliation Triggers
+
+The controller uses predicates to optimize when reconciliation occurs, avoiding unnecessary work:
+
+| Change Type | Triggers Reconcile? |
+|-------------|---------------------|
+| `GSMSecret` `.spec` changes | Yes |
+| `secrets.pize.com/ksa` annotation changed | Yes |
+| `secrets.pize.com/gsa` annotation changed | Yes |
+| `secrets.pize.com/wif-audience` annotation changed | Yes |
+| `secrets.pize.com/release` annotation changed | Yes |
+| `GSMSecret` status-only update | No |
+| `GSMSecret` label changes | No |
+| Other annotation changes (e.g., `kubectl.kubernetes.io/last-applied-configuration`) | No |
+| Owned `Secret` data/type changed | Yes |
+| Owned `Secret` metadata-only update | No |
+
+The controller also requeues every 5 minutes (FIXME) to pick up changes in Google Secret Manager.
 
 ### OIDC and wifAudience
 
