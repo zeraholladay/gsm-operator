@@ -23,6 +23,58 @@ Tradeoffs:
 
 `gsm-operator` manages `GSMSecret` custom resources that materialize Google Secret Manager entries into Kubernetes `Secret` objects.
 
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph k8s["Kubernetes Cluster"]
+        gsmsecret["GSMSecret CR"]
+        controller["gsm-operator<br/>Controller"]
+        ksa["Kubernetes<br/>ServiceAccount"]
+        secret["Kubernetes Secret<br/>(Opaque)"]
+    end
+    
+    subgraph gcp["Google Cloud"]
+        wif["Workload Identity<br/>Federation Pool"]
+        sts["Security Token<br/>Service (STS)"]
+        gsa["Google Service<br/>Account (optional)"]
+        gsm["Secret Manager"]
+    end
+    
+    gsmsecret -->|"1. Watch/Reconcile"| controller
+    controller -->|"2. Request token<br/>for KSA"| ksa
+    ksa -->|"3. OIDC JWT"| controller
+    controller -->|"4. Exchange token"| sts
+    sts -->|"5. Validate via WIF"| wif
+    wif -->|"6. Federated token"| controller
+    controller -.->|"7. Impersonate<br/>(optional)"| gsa
+    controller -->|"8. Access secret"| gsm
+    gsm -->|"9. Secret payload"| controller
+    controller -->|"10. Create/Update"| secret
+
+    style gsmsecret fill:#326ce5,color:#fff
+    style secret fill:#326ce5,color:#fff
+    style controller fill:#326ce5,color:#fff
+    style ksa fill:#326ce5,color:#fff
+    style gsm fill:#4285f4,color:#fff
+    style wif fill:#4285f4,color:#fff
+    style sts fill:#4285f4,color:#fff
+    style gsa fill:#4285f4,color:#fff
+```
+
+### Flow Description
+
+1. **Watch/Reconcile**: Controller watches for GSMSecret CR changes
+2. **Request KSA Token**: Controller requests a short-lived OIDC token for the namespace's ServiceAccount
+3. **OIDC JWT**: Kubernetes issues a JWT with the configured WIF audience
+4. **Exchange Token**: Controller sends the K8s JWT to Google STS
+5. **Validate via WIF**: STS validates the token against the Workload Identity Pool
+6. **Federated Token**: STS returns a Google access token
+7. **Impersonate (optional)**: If `secrets.pize.com/gsa` annotation is set, exchange for impersonated credentials
+8. **Access Secret**: Controller fetches the secret payload from GSM
+9. **Secret Payload**: GSM returns the secret data
+10. **Create/Update**: Controller creates or updates the target Kubernetes Secret
+
 ## Configuration
 
 To configure environment variables used by the setup examples:
@@ -97,7 +149,7 @@ The controller uses predicates to optimize when reconciliation occurs, avoiding 
 | Owned `Secret` data/type changed | Yes |
 | Owned `Secret` metadata-only update | No |
 
-The controller also requeues every 5 minutes (FIXME) to pick up changes in Google Secret Manager.
+The controller also requeues periodically (default: 5 minutes, configurable via `RESYNC_INTERVAL_SECONDS` env var) to pick up changes in Google Secret Manager.
 
 ### OIDC and wifAudience
 

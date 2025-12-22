@@ -44,9 +44,6 @@ func (m *secretMaterializer) buildOpaqueSecret(ctx context.Context) (*corev1.Sec
 			log.Error(fmt.Errorf("empty key"), "encountered payload with empty key while building Secret")
 			return nil, fmt.Errorf("payload has empty key")
 		}
-		if _, exists := data[p.Key]; exists {
-			return nil, fmt.Errorf("duplicate payload key %q", p.Key)
-		}
 		data[p.Key] = p.Value
 	}
 

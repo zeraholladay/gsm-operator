@@ -1057,3 +1057,48 @@ func TestGSMSecretChangedPredicate_DefaultFuncs(t *testing.T) {
 		t.Error("expected Generic to return true by default")
 	}
 }
+
+func TestGetResyncInterval_Default(t *testing.T) {
+	t.Setenv("RESYNC_INTERVAL_SECONDS", "")
+
+	interval := getResyncInterval()
+	if interval != 5*time.Minute {
+		t.Errorf("expected default 5 minutes, got %v", interval)
+	}
+}
+
+func TestGetResyncInterval_CustomValue(t *testing.T) {
+	t.Setenv("RESYNC_INTERVAL_SECONDS", "120")
+
+	interval := getResyncInterval()
+	if interval != 2*time.Minute {
+		t.Errorf("expected 2 minutes, got %v", interval)
+	}
+}
+
+func TestGetResyncInterval_InvalidValue(t *testing.T) {
+	t.Setenv("RESYNC_INTERVAL_SECONDS", "not-a-number")
+
+	interval := getResyncInterval()
+	if interval != 5*time.Minute {
+		t.Errorf("expected default 5 minutes for invalid value, got %v", interval)
+	}
+}
+
+func TestGetResyncInterval_ZeroValue(t *testing.T) {
+	t.Setenv("RESYNC_INTERVAL_SECONDS", "0")
+
+	interval := getResyncInterval()
+	if interval != 5*time.Minute {
+		t.Errorf("expected default 5 minutes for zero value, got %v", interval)
+	}
+}
+
+func TestGetResyncInterval_NegativeValue(t *testing.T) {
+	t.Setenv("RESYNC_INTERVAL_SECONDS", "-60")
+
+	interval := getResyncInterval()
+	if interval != 5*time.Minute {
+		t.Errorf("expected default 5 minutes for negative value, got %v", interval)
+	}
+}

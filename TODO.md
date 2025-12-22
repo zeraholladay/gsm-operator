@@ -17,7 +17,8 @@ Last updated: 2025-12-22
 - [x] Validate that `keyedSecretPayload` keys used in `buildOpaqueSecret` are valid environment variable names
 - [x] Add predicates to ignore status-only updates to avoid immediate self-triggered reconciles (status update currently causes an extra reconcile independent of the 5m RequeueAfter)
 - [x] Debounce/ignore reconcile triggers from owned Secret updates when no data changes (e.g., compare before Update or add predicate) to avoid double runs on rollout
-- [ ] Update Helm example to reflect latest operator config/flags
-- [ ] Add architecture flow diagram
-- [ ] Make resync interval configurable (currently hardcoded to 5 minutes)
-
+- [x] Update Helm example to reflect latest operator config/flags
+- [x] Add architecture flow diagram
+- [x] Make resync interval configurable (currently hardcoded to 5 minutes)
+- [x] Configurable logging levels.
+- [ ] GCP Parameter Manager
