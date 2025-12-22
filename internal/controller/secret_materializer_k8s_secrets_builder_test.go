@@ -96,7 +96,7 @@ func TestBuildOpaqueSecret_EmptyPayloads(t *testing.T) {
 	}
 }
 
-func TestBuildOpaqueSecret_DuplicateKey(t *testing.T) {
+func TestBuildOpaqueSecret_DuplicateKey_LastWins(t *testing.T) {
 	m := &secretMaterializer{
 		gsmSecret: &secretspizecomv1alpha1.GSMSecret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -112,18 +112,24 @@ func TestBuildOpaqueSecret_DuplicateKey(t *testing.T) {
 		payloads: []keyedSecretPayload{
 			{Key: "DUPLICATE_KEY", Value: []byte("value1")},
 			{Key: "OTHER_KEY", Value: []byte("other-value")},
-			{Key: "DUPLICATE_KEY", Value: []byte("value2")}, // duplicate
+			{Key: "DUPLICATE_KEY", Value: []byte("value2")}, // duplicate - should win
 		},
 	}
 
-	_, err := m.buildOpaqueSecret(context.Background())
-	if err == nil {
-		t.Fatal("expected error for duplicate key, got nil")
+	secret, err := m.buildOpaqueSecret(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error for duplicate key (last wins), got %v", err)
 	}
 
-	expectedMsg := `duplicate payload key "DUPLICATE_KEY"`
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	// Last value should win
+	if string(secret.Data["DUPLICATE_KEY"]) != "value2" {
+		t.Errorf("expected DUPLICATE_KEY='value2' (last wins), got %q", string(secret.Data["DUPLICATE_KEY"]))
+	}
+	if string(secret.Data["OTHER_KEY"]) != "other-value" {
+		t.Errorf("expected OTHER_KEY='other-value', got %q", string(secret.Data["OTHER_KEY"]))
+	}
+	if len(secret.Data) != 2 {
+		t.Errorf("expected 2 data entries, got %d", len(secret.Data))
 	}
 }
 

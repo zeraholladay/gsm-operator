@@ -17,8 +17,11 @@ limitations under the License.
 package controller
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,8 +30,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	secretspizecomv1alpha1 "github.com/zeraholladay/gsm-operator/api/v1alpha1"
 )
@@ -36,11 +42,23 @@ import (
 const (
 	// defaultResyncInterval is how often to re-reconcile even if no events occur,
 	// ensuring GSM secret changes are eventually reflected.
+	// Can be overridden via RESYNC_INTERVAL_SECONDS environment variable.
 	defaultResyncInterval = 5 * time.Minute
 
 	// Condition types for GSMSecret status.
 	conditionTypeReady = "Ready"
 )
+
+// getResyncInterval returns the resync interval from RESYNC_INTERVAL_SECONDS env var,
+// or the default of 5 minutes if not set or invalid.
+func getResyncInterval() time.Duration {
+	if v := os.Getenv("RESYNC_INTERVAL_SECONDS"); v != "" {
+		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
+			return time.Duration(seconds) * time.Second
+		}
+	}
+	return defaultResyncInterval
+}
 
 // GSMSecretReconciler reconciles a GSMSecret object.
 type GSMSecretReconciler struct {
@@ -117,7 +135,7 @@ func (r *GSMSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	log.Info("reconciliation complete")
 	// Requeue after interval to pick up GSM secret changes.
-	return ctrl.Result{RequeueAfter: defaultResyncInterval}, nil
+	return ctrl.Result{RequeueAfter: getResyncInterval()}, nil
 }
 
 // newSecretMaterializer acts as a factory/constructor.
@@ -212,11 +230,99 @@ func (r *GSMSecretReconciler) setStatusCondition(
 	return r.Status().Update(ctx, gsmSecret)
 }
 
+// gsmSecretChangedPredicate triggers reconciliation when the GSMSecret's spec or
+// relevant annotations change. This ignores status-only updates (which don't increment
+// generation) while still reacting to annotation changes that affect behavior.
+type gsmSecretChangedPredicate struct {
+	predicate.Funcs
+}
+
+// relevantAnnotations are the annotation keys that affect controller behavior.
+// Changes to these annotations should trigger reconciliation.
+var relevantAnnotations = []string{
+	secretspizecomv1alpha1.AnnotationKSA,
+	secretspizecomv1alpha1.AnnotationGSA,
+	secretspizecomv1alpha1.AnnotationWIFAudience,
+	secretspizecomv1alpha1.AnnotationRelease,
+}
+
+// Update returns true if the GSMSecret's generation or relevant annotations have changed.
+func (gsmSecretChangedPredicate) Update(e event.UpdateEvent) bool {
+	// Always reconcile if generation changed (spec change)
+	if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+		return true
+	}
+
+	// Check if any relevant annotations changed
+	oldAnnotations := e.ObjectOld.GetAnnotations()
+	newAnnotations := e.ObjectNew.GetAnnotations()
+	for _, key := range relevantAnnotations {
+		if oldAnnotations[key] != newAnnotations[key] {
+			return true
+		}
+	}
+
+	// Status-only update or irrelevant annotation change, skip reconciliation
+	return false
+}
+
+// secretDataChangedPredicate triggers reconciliation only when Secret data actually changes.
+// This avoids unnecessary reconciles when only metadata (like resourceVersion) changes.
+type secretDataChangedPredicate struct {
+	predicate.Funcs
+}
+
+// Update returns true only if the Secret's Data or Type has changed.
+func (secretDataChangedPredicate) Update(e event.UpdateEvent) bool {
+	oldSecret, ok := e.ObjectOld.(*corev1.Secret)
+	if !ok {
+		return true // Not a Secret, allow the event
+	}
+	newSecret, ok := e.ObjectNew.(*corev1.Secret)
+	if !ok {
+		return true // Not a Secret, allow the event
+	}
+
+	// Check if Type changed
+	if oldSecret.Type != newSecret.Type {
+		return true
+	}
+
+	// Check if Data changed (deep comparison)
+	if !secretDataEqual(oldSecret.Data, newSecret.Data) {
+		return true
+	}
+
+	// No meaningful change, skip reconciliation
+	return false
+}
+
+// secretDataEqual compares two secret data maps for equality.
+func secretDataEqual(a, b map[string][]byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if bv, ok := b[k]; !ok || !bytes.Equal(v, bv) {
+			return false
+		}
+	}
+	return true
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *GSMSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&secretspizecomv1alpha1.GSMSecret{}).
-		Owns(&corev1.Secret{}).
+		// Watch GSMSecret with custom predicate to ignore status-only updates.
+		// Reconcile when: spec changes (generation bump) OR annotations change.
+		// Skip when: only status changes (e.g., after we update conditions).
+		For(&secretspizecomv1alpha1.GSMSecret{},
+			builder.WithPredicates(gsmSecretChangedPredicate{})).
+		// Watch owned Secrets, but only trigger reconcile when data actually changes.
+		// This prevents double reconciles when we update a Secret (which triggers an
+		// update event) but the data hasn't meaningfully changed.
+		Owns(&corev1.Secret{},
+			builder.WithPredicates(secretDataChangedPredicate{})).
 		Named("gsmsecret").
 		Complete(r)
 }

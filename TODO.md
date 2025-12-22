@@ -15,7 +15,10 @@ Last updated: 2025-12-22
 - [ ] Add metrics for reconcile duration, error counts, and STS/token operations
 - [x] Add manifests and documentation for `default` ServiceAccount, RBAC, and IAM bindings
 - [x] Validate that `keyedSecretPayload` keys used in `buildOpaqueSecret` are valid environment variable names
-- [ ] 2025-12-22: Add predicates to ignore status-only updates to avoid immediate self-triggered reconciles (status update currently causes an extra reconcile independent of the 5m RequeueAfter)
-- [ ] 2025-12-22: Debounce/ignore reconcile triggers from owned Secret updates when no data changes (e.g., compare before Update or add predicate) to avoid double runs on rollout
-- [ ] 2025-12-22: Update Helm example to reflect latest operator config/flags
-
+- [x] Add predicates to ignore status-only updates to avoid immediate self-triggered reconciles (status update currently causes an extra reconcile independent of the 5m RequeueAfter)
+- [x] Debounce/ignore reconcile triggers from owned Secret updates when no data changes (e.g., compare before Update or add predicate) to avoid double runs on rollout
+- [x] Update Helm example to reflect latest operator config/flags
+- [x] Add architecture flow diagram
+- [x] Make resync interval configurable (currently hardcoded to 5 minutes)
+- [x] Configurable logging levels.
+- [ ] GCP Parameter Manager

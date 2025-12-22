@@ -10,9 +10,29 @@ manager:
   # Arguments
   args:
     - --leader-elect
+    - --zap-log-level=info      # Options: debug, info, error
+    - --zap-devel=false         # Set to true for human-readable dev logs
+    - --zap-encoder=json        # Options: json, console
 
   # Environment variables
-  env: []
+  # WIFAUDIENCE is required unless set via annotation on each GSMSecret
+  env:
+    # Required: Workload Identity Federation audience
+    # Format: //iam.googleapis.com/projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/<POOL>/providers/<PROVIDER>
+    - name: WIFAUDIENCE
+      value: ""
+    # Optional: Override default Kubernetes ServiceAccount name (default: "default")
+    # - name: KSA
+    #   value: "my-service-account"
+    # Optional: Token expiration in seconds (default: 600)
+    # - name: TOKEN_EXP_SECONDS
+    #   value: "600"
+    # Optional: HTTP timeout in seconds (default: 30)
+    # - name: HTTP_TIMEOUT_SECONDS
+    #   value: "30"
+    # Optional: Resync interval in seconds - how often to re-check GSM for changes (default: 300 = 5 minutes)
+    # - name: RESYNC_INTERVAL_SECONDS
+    #   value: "300"
 
   # Pod-level security settings
   podSecurityContext:
