@@ -24,7 +24,7 @@ Tradeoffs:
 `gsm-operator` manages `GSMSecret` custom resources that materialize Google Secret Manager entries into Kubernetes `Secret` objects.
 
 
-## Configration
+## Configuration
 
 To configure environment variables used by the setup examples:
 
@@ -83,7 +83,7 @@ Usage:
 
 ### OIDC and wifAudience
 
-The Operator functions as an identity broker using a Dynamic Impersonation pattern. Instead of using its own broad permissions, the Operator explicitly requests a short-lived token for the tenant's Kubernetes Service Account (default FIXME). It then exchanges this token via Google STS (OIDC) to access Secret Manager resources scoped specifically to that tenant identity. Because GKE's "Native" Workload Identity is a managed implementation designed to be "magic" and opaque (i.e., The native GKE integration does not expose a public Workload Identity Pool Provider resource for manual token exchange), we have to leverage Workload Identity Pools for non-trivial security.
+The Operator functions as an identity broker using a Dynamic Impersonation pattern. Instead of using its own broad permissions, the Operator explicitly requests a short-lived token for the tenant's Kubernetes Service Account (`default` by default). It then exchanges this token via Google STS (OIDC) to access Secret Manager resources scoped specifically to that tenant identity. Because GKE's "Native" Workload Identity is a managed implementation designed to be "magic" and opaque (i.e., The native GKE integration does not expose a public Workload Identity Pool Provider resource for manual token exchange), we have to leverage Workload Identity Pools for non-trivial security.
 
 Build Workload Identity Pool & Provider:
 
@@ -112,13 +112,9 @@ gcloud iam workload-identity-pools providers create-oidc gsm-operator-provider \
 export WIF_AUDIENCE="//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
 echo "wifAudience is $WIF_AUDIENCE"
 
-### 5. IAM Binding Guidance
+### 5. principal
 echo IAM Binding Guidance
 echo "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:default"
-echo gcloud secrets add-iam-policy-binding bogus-test \
-    --project="${target_project_id}" \
-    --role="roles/secretmanager.secretAccessor" \
-    --member="principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:default"
 
 echo "... or Bind this Principal to your GSA if using Service Account impersonation (not recommended nor implemented yet):"
 echo "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:default"
@@ -150,7 +146,7 @@ gcloud iam workload-identity-pools delete gsm-operator-pool \
     --project="${OIDC_PROJECT_ID}"
 ```
 
-## Install & Run Sample
+# Install & Run Sample
 
 ### Prerequisites
 - go version v1.24.6+
@@ -163,24 +159,71 @@ gcloud iam workload-identity-pools delete gsm-operator-pool \
 ***Prerequisites:**
 
 1. The artifact registry exists.
-2. You have permission to write to the registry.
-3. A test Secret in Secret Manager exists and is accessible from the operator namespace:
+2. You have permission to write to the registry, deploy to GKE, etc.
+3. Kubectl context is configured: `kubectl config use-context <my-context>` and `kubectl config set-context --current --namespace="gsmsecret-test-ns"` 
+4. OIDC, IAM, & Secrets have been configured.
+
+***Assumptions***
+
+The sample assumes GCP project `${SECRETS_PROJECT_ID}`, namespace `gsmsecret-test-ns` on `${CLUSTER_NAME}`, and a secret called `bogus-test` (created in the prerequisites above).
+
+**Required for test** Simple configuration assumed with the test install:
+
+1. Create a GSM Secret and grant access:
 
 ```sh
+# Create a secret
 printf "testing123" | gcloud secrets create bogus-test \
     --data-file=- \
     --project=${SECRETS_PROJECT_ID} \
     --replication-policy=automatic
-```
 
-```sh
+# Grant access if not using GSA impersonation
 gcloud secrets add-iam-policy-binding bogus-test \
     --project=${SECRETS_PROJECT_ID} \
     --role="roles/secretmanager.secretAccessor" \
     --member="principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:default"
 ```
 
-**Setup:**
+**Optional** if using GSA impersonation, then:
+
+1. Setup the SA, grant IAM role, and add the IAM binding to the secret:
+
+```sh
+project_id="<project where this GSA lives>"
+sa_email="my-sa@${project_id}.iam.gserviceaccount.com"
+
+# Create the GSA
+gcloud iam service-accounts create my-sa \
+  --project=${project_id} \
+  --display-name="my-sa"
+
+# The OIDC principal
+principal="principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:default"
+
+# (Optional sanity check) confirm the GSA exists
+gcloud iam service-accounts describe "${sa_email}" --project="${project_id}"
+
+gcloud iam service-accounts add-iam-policy-binding "${sa_email}" \
+  --project="${project_id}" \
+  --role="roles/iam.serviceAccountTokenCreator" \
+  --member="${principal}"
+
+# Verify the binding landed
+gcloud iam service-accounts get-iam-policy "roles/iam.serviceAccountTokenCreator" \
+  --project="${project_id}" \
+  --format="yaml"
+
+# Grant the GSA access to the GSM Secret
+gcloud secrets add-iam-policy-binding bogus-test \
+    --project=${SECRETS_PROJECT_ID} \
+    --role="roles/secretmanager.secretAccessor" \
+    --member="serviceAccount:${sa_email}"
+```
+
+2. Add the annotation `secrets.pize.com/gsa: "${sa_email}"` to `config/samples/secrets.pize.com_v1alpha1_gsmsecret.yaml` on `GSMSecret`.
+
+### Setup
 
 **Build and push your image to the location specified by `IMG`:**
 
@@ -203,14 +246,12 @@ Make sure you have the proper permission to the registry if the above commands d
 **Install the CRDs into the cluster:**
 
 ```sh
-kubectl config current-context # check: this runs kubectl
 make install
 ```
 
 **Deploy the Manager to the cluster with the image specified by `IMG`:**
 
 ```sh
-kubectl config current-context # check: this runs kubectl
 make deploy IMG=${REGISTRY}/gsm-operator:${TAG}
 ```
 
@@ -219,12 +260,16 @@ privileges or be logged in as admin.
 
 **Create instances of your solution**
 
-The sample assumes GCP project `${SECRETS_PROJECT_ID}`, namespace `gsmsecret-test-ns` on `${CLUSTER_NAME}`, and a secret called `bogus-test` (created in the prerequisites above).
-
 1. You can apply the samples (examples) from the config/sample:
 
 ```sh
 envsubst < config/samples/secrets.pize.com_v1alpha1_gsmsecret.yaml | kubectl apply -f -
+```
+
+2. Verify the secret was created:
+
+```sh
+kubectl get Secret my-secret  -o yaml
 ```
 
 >**NOTE**: Ensure that the samples has default values to test it out.
