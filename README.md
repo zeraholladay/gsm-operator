@@ -187,13 +187,13 @@ gcloud secrets add-iam-policy-binding bogus-test \
 **For arm64**, to build **only** `linux/amd64`, override `PLATFORMS` (see `Makefile` `docker-buildx` target):
 
 ```sh
-make docker-buildx IMG=${REGISTRY}/gsm-operator:${IMAGE_TAG} PLATFORMS=linux/amd64
+make docker-buildx IMG=${REGISTRY}/gsm-operator:${TAG} PLATFORMS=linux/amd64
 ```
 
 Otherwise:
 
 ```sh
-make docker-build docker-push IMG=${REGISTRY}/gsm-operator:${IMAGE_TAG}
+make docker-build docker-push IMG=${REGISTRY}/gsm-operator:${TAG}
 ```
 
 **NOTE:** This image ought to be published in the personal registry you specified.
@@ -211,7 +211,7 @@ make install
 
 ```sh
 kubectl config current-context # check: this runs kubectl
-make deploy IMG=${REGISTRY}/gsm-operator:${IMAGE_TAG}
+make deploy IMG=${REGISTRY}/gsm-operator:${TAG}
 ```
 
 > **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
@@ -257,7 +257,7 @@ Following the options to release and provide this solution to the users.
 1. Build the installer for the image built and published in the registry:
 
 ```sh
-make build-installer IMG=${REGISTRY}/gsm-operator:${IMAGE_TAG}
+make build-installer IMG=${REGISTRY}/gsm-operator:${TAG}
 ```
 
 **NOTE:** The makefile target mentioned above generates an 'install.yaml'

@@ -50,19 +50,37 @@ type keyedSecretPayload struct {
 	Value []byte
 }
 
+// Get the KSA
 func (m *secretMaterializer) getKSA() string {
+	// Override namespace with envvar: your GKE RBAC configs a specific and consistent KSA (e.g. gsm-reader)
 	if v := os.Getenv("KSA"); v != "" {
 		return v
 	}
 
+	// Otherwise use the annotation
 	if ann := m.gsmSecret.GetAnnotations(); ann != nil {
 		if v := strings.TrimSpace(ann[secretspizecomv1alpha1.AnnotationKSA]); v != "" {
 			return v
 		}
 	}
+	// Last use KSA called default
 	return defaultKSAName
 }
 
+// Use the GSA if provided -> the KSA must have permission to impersonate it
+// where the KSA is is `default` in the following example and the ns is `gsmsecret-test-ns`:
+// "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:default"
+// **AND** this principal has "roles/iam.serviceAccountTokenCreator"
+func (m *secretMaterializer) getGSA() string {
+	if ann := m.gsmSecret.GetAnnotations(); ann != nil {
+		if v := strings.TrimSpace(ann[secretspizecomv1alpha1.AnnotationGSA]); v != "" {
+			return v
+		}
+	}
+	return "" // indicates NOT to do GSA impersonation
+}
+
+// i.e. "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
 func (m *secretMaterializer) getWIFAudience() (string, error) {
 	if v := os.Getenv("WIFAUDIENCE"); v != "" {
 		return v, nil

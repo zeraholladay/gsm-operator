@@ -140,3 +140,79 @@ func TestGetWIFAudienceMissing(t *testing.T) {
 		t.Fatalf("expected error when WIF audience is missing")
 	}
 }
+
+func TestGetGSAFromAnnotation(t *testing.T) {
+	m := &secretMaterializer{
+		gsmSecret: &secretspizecomv1alpha1.GSMSecret{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					secretspizecomv1alpha1.AnnotationGSA: "my-gsa@project.iam.gserviceaccount.com",
+				},
+			},
+		},
+	}
+
+	if got := m.getGSA(); got != "my-gsa@project.iam.gserviceaccount.com" {
+		t.Fatalf("expected GSA from annotation, got %q", got)
+	}
+}
+
+func TestGetGSAEmptyWhenNoAnnotation(t *testing.T) {
+	m := &secretMaterializer{
+		gsmSecret: &secretspizecomv1alpha1.GSMSecret{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{},
+			},
+		},
+	}
+
+	if got := m.getGSA(); got != "" {
+		t.Fatalf("expected empty GSA when no annotation, got %q", got)
+	}
+}
+
+func TestGetGSAEmptyWhenNilAnnotations(t *testing.T) {
+	m := &secretMaterializer{
+		gsmSecret: &secretspizecomv1alpha1.GSMSecret{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: nil,
+			},
+		},
+	}
+
+	if got := m.getGSA(); got != "" {
+		t.Fatalf("expected empty GSA when nil annotations, got %q", got)
+	}
+}
+
+func TestGetGSATrimsWhitespace(t *testing.T) {
+	m := &secretMaterializer{
+		gsmSecret: &secretspizecomv1alpha1.GSMSecret{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					secretspizecomv1alpha1.AnnotationGSA: "  my-gsa@project.iam.gserviceaccount.com  ",
+				},
+			},
+		},
+	}
+
+	if got := m.getGSA(); got != "my-gsa@project.iam.gserviceaccount.com" {
+		t.Fatalf("expected trimmed GSA, got %q", got)
+	}
+}
+
+func TestGetGSAEmptyWhenWhitespaceOnly(t *testing.T) {
+	m := &secretMaterializer{
+		gsmSecret: &secretspizecomv1alpha1.GSMSecret{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					secretspizecomv1alpha1.AnnotationGSA: "   ",
+				},
+			},
+		},
+	}
+
+	if got := m.getGSA(); got != "" {
+		t.Fatalf("expected empty GSA when whitespace only, got %q", got)
+	}
+}
