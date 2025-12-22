@@ -42,10 +42,10 @@ if [[ "${IMAGE_INPUT}" == *@* ]]; then
 else
   # IMAGE_INPUT is path:tag; split into path and tag
   IMAGE_PATH="${IMAGE_INPUT%%:*}"
-  IMAGE_TAG="${IMAGE_INPUT##*:}"
+  TAG="${IMAGE_INPUT##*:}"
 
   DIGEST="$(gcloud artifacts docker images describe \
-    "${IMAGE_PATH}:${IMAGE_TAG}" \
+    "${IMAGE_PATH}:${TAG}" \
     --project="${GAR_PROJECT_ID}" \
     --format='get(image_summary.digest)')"
 

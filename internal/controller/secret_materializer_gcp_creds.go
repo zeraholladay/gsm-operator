@@ -23,6 +23,7 @@ import (
 
 	xoauth2 "golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/impersonate"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sts/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -51,13 +52,24 @@ func (m *secretMaterializer) getCredentials(ctx context.Context) (*google.Creden
 		return nil, fmt.Errorf("request KSA token: %w", err)
 	}
 
-	// STEP 2: Exchange the KSA token for Google credentials via Workload Identity.
+	// STEP 2: Exchange the KSA token for Google credentials via Workload Identity to get GCP creds.
 	log.Info("exchanging Kubernetes ServiceAccount token via Workload Identity Federation")
 	creds, err := m.gcpCredsFromK8sToken(ctx, token, wifAudience)
 	if err != nil {
 		log.Error(err, "failed to exchange KSA token for Google credentials")
 		return nil, fmt.Errorf("exchange KSA token for Google credentials: %w", err)
 	}
+
+	// STEP 3: If GSA Impersonation is requested, then use creds from STEP 2 to impersonate GSA
+	if gsa := m.getGSA(); gsa != "" {
+		log.Info("GSA impersonation requested; exchanging WIF credentials for impersonated access tokens", "gsa", gsa)
+		impersonatedCreds, err := m.gsaCredsFromGcpCreds(ctx, creds, gsa)
+		if err != nil {
+			return nil, err
+		}
+		return impersonatedCreds, nil
+	}
+
 	return creds, nil
 }
 
@@ -130,4 +142,26 @@ func (m *secretMaterializer) exchangeK8sTokenWithSTS(ctx context.Context, k8sTok
 
 	// Map the library response to your internal struct.
 	return resp, nil
+}
+
+// gsaCredsFromGcpCreds uses the provided base Google credentials (derived via
+// Workload Identity Federation) to impersonate the target Google Service
+// Account (GSA). It returns a new *google.Credentials whose TokenSource
+// produces impersonated access tokens suitable for downstream Google client
+// libraries (e.g. Secret Manager).
+func (m *secretMaterializer) gsaCredsFromGcpCreds(ctx context.Context, creds *google.Credentials, gsa string) (*google.Credentials, error) {
+	log := logf.FromContext(ctx)
+	ts, err := impersonate.CredentialsTokenSource(
+		ctx,
+		impersonate.CredentialsConfig{
+			TargetPrincipal: gsa,
+			Scopes:          []string{"https://www.googleapis.com/auth/cloud-platform"},
+		},
+		option.WithTokenSource(creds.TokenSource),
+	)
+	if err != nil {
+		log.Error(err, "failed to impersonate GSA", "gsa", gsa)
+		return nil, fmt.Errorf("impersonate GSA %s: %w", gsa, err)
+	}
+	return &google.Credentials{TokenSource: ts}, nil
 }
