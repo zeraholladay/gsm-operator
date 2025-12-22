@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: docker.io/zeraholladay/gsm-operator
-  newTag: ed33672
+  newTag: 3a7cf02
