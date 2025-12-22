@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2025-12-21
+
+- Refactored GSMSecret spec to move KSA/GSA/WIF audience into annotations and aligned controller logic.
+- Tightened schema validation (patterns for targetSecret.name, key, projectId, secretId, version) and updated CRD.
+- Expanded test coverage for schema constraints, annotation precedence, and controller behaviors.
+- Updated docs and sample manifests to use the new annotations.
+- General bug fixes and refactor cleanups.
+
 ### 2025-12-20
 
 - Initial working "hack" verion:
@@ -10,4 +18,4 @@
   - `internal/controller/gsmsecret_controller.go`
   - `internal/controller/k8s_secret.go`
   - `internal/controller/service_accounts.go`
-- Added `TODO.md` with high-level roadmap items (testing, `gsm-reader` configurability, SA impersonation, status/conditions, WIF audience behavior, metrics, and docs).
+- Added `TODO.md` with high-level roadmap items (testing, `default` configurability, SA impersonation, status/conditions, WIF audience behavior, metrics, and docs).

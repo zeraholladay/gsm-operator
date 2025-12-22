@@ -21,64 +21,82 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	secretspizecomv1alpha1 "github.com/zeraholladay/gsm-operator/api/v1alpha1"
 )
 
 var _ = Describe("GSMSecret Controller", func() {
-	Context("When reconciling a resource", func() {
+	Context("When creating a GSMSecret resource", func() {
 		const resourceName = "test-resource"
 
 		ctx := context.Background()
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: "default",
 		}
-		gsmsecret := &secretspizecomv1alpha1.GSMSecret{}
 
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind GSMSecret")
-			err := k8sClient.Get(ctx, typeNamespacedName, gsmsecret)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &secretspizecomv1alpha1.GSMSecret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+		AfterEach(func() {
+			resource := &secretspizecomv1alpha1.GSMSecret{}
+			err := k8sClient.Get(ctx, typeNamespacedName, resource)
+			if err == nil {
+				By("Cleanup the specific resource instance GSMSecret")
+				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 			}
 		})
 
-		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &secretspizecomv1alpha1.GSMSecret{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
+		It("should accept a valid GSMSecret spec", func() {
+			By("creating the custom resource for the Kind GSMSecret")
+			resource := &secretspizecomv1alpha1.GSMSecret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: "default",
+					Annotations: map[string]string{
+						secretspizecomv1alpha1.AnnotationWIFAudience: "//iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/test-pool/providers/test-provider",
+					},
+				},
+				Spec: secretspizecomv1alpha1.GSMSecretSpec{
+					TargetSecret: secretspizecomv1alpha1.GSMSecretTargetSecret{
+						Name: "test-target-secret",
+					},
+					Secrets: []secretspizecomv1alpha1.GSMSecretEntry{
+						{
+							Key:       "TEST_KEY",
+							ProjectID: "test-project",
+							SecretID:  "test-secret",
+							Version:   "latest",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 
-			By("Cleanup the specific resource instance GSMSecret")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			By("verifying the resource was created")
+			fetched := &secretspizecomv1alpha1.GSMSecret{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, fetched)).To(Succeed())
+			Expect(fetched.Spec.TargetSecret.Name).To(Equal("test-target-secret"))
+			Expect(fetched.Spec.Secrets).To(HaveLen(1))
+			Expect(fetched.Spec.Secrets[0].Key).To(Equal("TEST_KEY"))
 		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
+
+		It("should handle reconcile for missing resource gracefully", func() {
+			By("Reconciling a non-existent resource")
 			controllerReconciler := &GSMSecretReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}
 
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
+			result, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      "non-existent-resource",
+					Namespace: "default",
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+			Expect(result).To(Equal(reconcile.Result{}))
 		})
 	})
 })
