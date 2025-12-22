@@ -272,7 +272,7 @@ envsubst < config/samples/secrets.pize.com_v1alpha1_gsmsecret.yaml | kubectl app
 kubectl get Secret my-secret  -o yaml
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
+>**NOTE**: Ensure that the samples have default values to test them out.
 
 ### To Uninstall
 **Delete the instances (CRs) from the cluster:**
@@ -287,7 +287,7 @@ envsubst < config/samples/secrets.pize.com_v1alpha1_gsmsecret.yaml | kubectl del
 make uninstall
 ```
 
-**UnDeploy the controller from the cluster:**
+**Undeploy the controller from the cluster:**
 
 ```sh
 make undeploy

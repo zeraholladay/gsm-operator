@@ -52,7 +52,7 @@ type keyedSecretPayload struct {
 
 // Get the KSA
 func (m *secretMaterializer) getKSA() string {
-	// Override namespace with envvar: your GKE RBAC configs a specific and consistent KSA (e.g. gsm-reader)
+	// Override the KSA via env var if your GKE RBAC requires a specific ServiceAccount (e.g., gsm-reader).
 	if v := os.Getenv("KSA"); v != "" {
 		return v
 	}
@@ -63,12 +63,12 @@ func (m *secretMaterializer) getKSA() string {
 			return v
 		}
 	}
-	// Last use KSA called default
+	// Fallback to the default KSA.
 	return defaultKSAName
 }
 
 // Use the GSA if provided -> the KSA must have permission to impersonate it
-// where the KSA is is `default` in the following example and the ns is `gsmsecret-test-ns`:
+// where the KSA is `default` in the following example and the ns is `gsmsecret-test-ns`:
 // "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:default"
 // **AND** this principal has "roles/iam.serviceAccountTokenCreator"
 func (m *secretMaterializer) getGSA() string {
