@@ -4,5 +4,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: docker.io/zeraholladay/gsm-operator
-  newTag: 3a7cf02
+  newName: us-docker.pkg.dev/wf-gcp-us-plat-gar-dev/gsm-operator/gsm-operator
+  newTag: 7b29ea8

@@ -44,6 +44,11 @@ kind: GSMSecret
 metadata:
   name: my-gsm-secrets
   namespace: gsmsecret-test-ns
+  annotations:
+    # Optional unless not set on the operator by env var WIFAUDIENCE
+    secrets.pize.com/wif-audience: "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider" # oidc_project_number is defined below
+    # secrets.pize.com/ksa: "custom-ksa" # optional: override Kubernetes SA used for WIF
+    # secrets.pize.com/gsa: "my-gsa@example.iam.gserviceaccount.com" # optional: override GCP SA when impersonation is enabled
 spec:
   targetSecret:
     name: my-secret             # name of K8s Secret
@@ -52,8 +57,6 @@ spec:
       projectId: "gcp-proj-id"  # GSM Secret project ID
       secretId: my-secret       # GSM secret name
       version: "1"              # recommend pinning a version for true “static”
-  # oidc_project_number is defined below
-  wifAudience: "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
 ```
 
 Creates a secret:
@@ -80,7 +83,7 @@ Usage:
 
 ### OIDC and wifAudience
 
-The Operator functions as an identity broker using a Dynamic Impersonation pattern. Instead of using its own broad permissions, the Operator explicitly requests a short-lived token for the tenant's Kubernetes Service Account (gsm-reader FIXME). It then exchanges this token via Google STS (OIDC) to access Secret Manager resources scoped specifically to that tenant identity. Because GKE's "Native" Workload Identity is a managed implementation designed to be "magic" and opaque (i.e., The native GKE integration does not expose a public Workload Identity Pool Provider resource for manual token exchange), we have to leverage Workload Identity Pools for non-trivial security.
+The Operator functions as an identity broker using a Dynamic Impersonation pattern. Instead of using its own broad permissions, the Operator explicitly requests a short-lived token for the tenant's Kubernetes Service Account (default FIXME). It then exchanges this token via Google STS (OIDC) to access Secret Manager resources scoped specifically to that tenant identity. Because GKE's "Native" Workload Identity is a managed implementation designed to be "magic" and opaque (i.e., The native GKE integration does not expose a public Workload Identity Pool Provider resource for manual token exchange), we have to leverage Workload Identity Pools for non-trivial security.
 
 Build Workload Identity Pool & Provider:
 
@@ -111,14 +114,14 @@ echo "wifAudience is $WIF_AUDIENCE"
 
 ### 5. IAM Binding Guidance
 echo IAM Binding Guidance
-echo "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:gsm-reader"
+echo "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:default"
 echo gcloud secrets add-iam-policy-binding bogus-test \
     --project="${target_project_id}" \
     --role="roles/secretmanager.secretAccessor" \
-    --member="principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:gsm-reader"
+    --member="principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:default"
 
 echo "... or Bind this Principal to your GSA if using Service Account impersonation (not recommended nor implemented yet):"
-echo "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:gsm-reader"
+echo "principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:default"
 ```
 
 To **validate** that the Workload Identity Pool and Provider were created:
@@ -174,7 +177,7 @@ printf "testing123" | gcloud secrets create bogus-test \
 gcloud secrets add-iam-policy-binding bogus-test \
     --project=${SECRETS_PROJECT_ID} \
     --role="roles/secretmanager.secretAccessor" \
-    --member="principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:gsm-reader"
+    --member="principal://iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/subject/system:serviceaccount:gsmsecret-test-ns:default"
 ```
 
 **Setup:**

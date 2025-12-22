@@ -1,3 +1,7 @@
+########################
+## Example Only
+########################
+
 terraform {
   required_version = ">= 1.5.0"
 
@@ -46,7 +50,20 @@ variable "ksa_namespace" {
 variable "ksa_name" {
   description = "Name of the Kubernetes ServiceAccount that gsm-operator impersonates."
   type        = string
-  default     = "gsm-reader"
+  default     = "default"
+}
+
+########################
+## Local variables
+########################
+
+locals {
+  services = toset([
+    "sts.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "iam.googleapis.com",
+    "secretmanager.googleapis.com",
+  ])
 }
 
 ########################
@@ -66,20 +83,28 @@ locals {
 }
 
 ########################
-## Workload Identity Pool & Provider
+## Services & Workload Identity Pool & Provider
 ########################
 
+resource "google_project_service" "enabled" {
+  for_each = local.services
+
+  project = var.oidc_project_id
+  service = each.value
+
+  # Keeps the APIs enabled if you destroy this resource (usually what you want)
+  disable_on_destroy = false
+}
+
 resource "google_iam_workload_identity_pool" "gsm_operator_pool" {
-  project  = var.oidc_project_id
-  location = "global"
+  project = var.oidc_project_id
 
   workload_identity_pool_id = "gsm-operator-pool"
   display_name              = "GSM Operator Pool"
 }
 
 resource "google_iam_workload_identity_pool_provider" "gsm_operator_provider" {
-  project  = var.oidc_project_id
-  location = "global"
+  project = var.oidc_project_id
 
   workload_identity_pool_id          = google_iam_workload_identity_pool.gsm_operator_pool.workload_identity_pool_id
   workload_identity_pool_provider_id = "gsm-operator-provider"
