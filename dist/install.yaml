@@ -480,7 +480,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: docker.io/zeraholladay/gsm-operator:3a7cf02
+        image: docker.io/zeraholladay/gsm-operator:ed5a8c8
         livenessProbe:
           httpGet:
             path: /healthz
