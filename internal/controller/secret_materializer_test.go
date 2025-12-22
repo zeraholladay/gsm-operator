@@ -79,8 +79,8 @@ func TestGetKSADefault(t *testing.T) {
 		},
 	}
 
-	if got := m.getKSA(); got != "default" {
-		t.Fatalf("expected default KSA default, got %q", got)
+	if got := m.getKSA(); got != defaultKSAName {
+		t.Fatalf("expected default KSA %q, got %q", defaultKSAName, got)
 	}
 }
 

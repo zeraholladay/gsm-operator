@@ -32,8 +32,9 @@ import (
 
 var _ = Describe("GSMSecret Reconcile Integration", func() {
 	const (
-		timeout  = time.Second * 10
-		interval = time.Millisecond * 250
+		timeout       = time.Second * 10
+		interval      = time.Millisecond * 250
+		testNamespace = "default"
 	)
 
 	Context("When reconciling with various scenarios", func() {
@@ -52,7 +53,7 @@ var _ = Describe("GSMSecret Reconcile Integration", func() {
 
 		It("should handle GSMSecret with status conditions correctly", func() {
 			resourceName := "status-test-resource"
-			namespace := "default"
+			namespace := testNamespace
 
 			By("Creating a GSMSecret resource")
 			gsmSecret := &secretspizecomv1alpha1.GSMSecret{
@@ -101,12 +102,12 @@ var _ = Describe("GSMSecret Reconcile Integration", func() {
 			Expect(err).To(HaveOccurred()) // Expected to fail without real GCP/WIF
 
 			// Result should be empty on error (no requeue scheduled)
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 		})
 
 		It("should update status condition on reconcile failure", func() {
 			resourceName := "failure-status-test"
-			namespace := "default"
+			namespace := testNamespace
 
 			By("Creating a GSMSecret resource")
 			gsmSecret := &secretspizecomv1alpha1.GSMSecret{
@@ -165,7 +166,7 @@ var _ = Describe("GSMSecret Reconcile Integration", func() {
 		It("should handle existing secret adoption and update", func() {
 			resourceName := "adoption-test"
 			targetSecretName := "adoption-target-secret"
-			namespace := "default"
+			namespace := testNamespace
 
 			By("Creating an existing secret without owner reference")
 			existingSecret := &corev1.Secret{
@@ -236,7 +237,7 @@ var _ = Describe("GSMSecret Reconcile Integration", func() {
 
 		It("should handle multiple secret entries in spec", func() {
 			resourceName := "multi-secret-test"
-			namespace := "default"
+			namespace := testNamespace
 
 			By("Creating a GSMSecret with multiple entries")
 			gsmSecret := &secretspizecomv1alpha1.GSMSecret{
@@ -295,7 +296,7 @@ var _ = Describe("GSMSecret Reconcile Integration", func() {
 
 		It("should handle generation updates correctly", func() {
 			resourceName := "generation-test"
-			namespace := "default"
+			namespace := testNamespace
 
 			By("Creating a GSMSecret resource")
 			gsmSecret := &secretspizecomv1alpha1.GSMSecret{

@@ -11,6 +11,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	testVersionV1alpha1 = "v1alpha1"
+	testModifiedValue   = "MODIFIED"
+)
+
 // Ensure the CRD schema keeps spec.targetSecret required as marked in gsmsecret_types.go.
 func TestGSMSecretSpecTargetSecretIsRequired(t *testing.T) {
 	specSchema := loadSpecSchema(t)
@@ -116,7 +121,6 @@ func TestGSMSecretEntryRequiredCoreFields(t *testing.T) {
 
 	required := requiredFields(entry.Required)
 	for _, f := range fields {
-		f := f
 		t.Run(f.name, func(t *testing.T) {
 			p, ok := entry.Properties[f.name]
 			if !ok {
@@ -272,13 +276,13 @@ func loadSpecSchema(t *testing.T) *apiextensionsv1.JSONSchemaProps {
 
 	var version *apiextensionsv1.CustomResourceDefinitionVersion
 	for i := range crd.Spec.Versions {
-		if crd.Spec.Versions[i].Name == "v1alpha1" {
+		if crd.Spec.Versions[i].Name == testVersionV1alpha1 {
 			version = &crd.Spec.Versions[i]
 			break
 		}
 	}
 	if version == nil {
-		t.Fatalf("v1alpha1 version not found in CRD")
+		t.Fatalf("%s version not found in CRD", testVersionV1alpha1)
 	}
 
 	if version.Schema == nil || version.Schema.OpenAPIV3Schema == nil {
@@ -449,13 +453,13 @@ func TestGSMSecretHasStatusSubresource(t *testing.T) {
 
 	var version *apiextensionsv1.CustomResourceDefinitionVersion
 	for i := range crd.Spec.Versions {
-		if crd.Spec.Versions[i].Name == "v1alpha1" {
+		if crd.Spec.Versions[i].Name == testVersionV1alpha1 {
 			version = &crd.Spec.Versions[i]
 			break
 		}
 	}
 	if version == nil {
-		t.Fatal("v1alpha1 version not found")
+		t.Fatalf("%s version not found", testVersionV1alpha1)
 	}
 
 	if version.Subresources == nil || version.Subresources.Status == nil {
@@ -580,8 +584,8 @@ func TestGSMSecretDeepCopy(t *testing.T) {
 	}
 
 	// Modify copy and verify original is unchanged
-	copied.Spec.Secrets[0].Key = "MODIFIED"
-	if original.Spec.Secrets[0].Key == "MODIFIED" {
+	copied.Spec.Secrets[0].Key = testModifiedValue
+	if original.Spec.Secrets[0].Key == testModifiedValue {
 		t.Error("modifying copy affected original - not a deep copy")
 	}
 
@@ -668,8 +672,8 @@ func TestGSMSecretListDeepCopy(t *testing.T) {
 	}
 
 	// Modify copy and verify original unchanged
-	copied.Items[0].Name = "MODIFIED"
-	if original.Items[0].Name == "MODIFIED" {
+	copied.Items[0].Name = testModifiedValue
+	if original.Items[0].Name == testModifiedValue {
 		t.Error("modifying copy affected original")
 	}
 }
@@ -693,8 +697,8 @@ func TestGSMSecretSpecDeepCopy(t *testing.T) {
 	}
 
 	// Modify copy
-	copied.Secrets[0].Key = "MODIFIED"
-	if original.Secrets[0].Key == "MODIFIED" {
+	copied.Secrets[0].Key = testModifiedValue
+	if original.Secrets[0].Key == testModifiedValue {
 		t.Error("modifying copy affected original")
 	}
 }
@@ -718,8 +722,8 @@ func TestGSMSecretStatusDeepCopy(t *testing.T) {
 	}
 
 	// Modify copy
-	copied.Conditions[0].Message = "MODIFIED"
-	if original.Conditions[0].Message == "MODIFIED" {
+	copied.Conditions[0].Message = testModifiedValue
+	if original.Conditions[0].Message == testModifiedValue {
 		t.Error("modifying copy affected original")
 	}
 }

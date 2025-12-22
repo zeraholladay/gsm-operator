@@ -32,6 +32,8 @@ const (
 	minTokenExpSeconds uint64 = 10 * 60
 	// Default to the Kubernetes minimum unless explicitly overridden higher.
 	defaultTokenExpSeconds uint64 = minTokenExpSeconds
+	// defaultKSAName is the default Kubernetes ServiceAccount name when not specified.
+	defaultKSAName = "default"
 )
 
 // secretMaterializer holds the dependencies and state required to materialize
@@ -58,7 +60,7 @@ func (m *secretMaterializer) getKSA() string {
 			return v
 		}
 	}
-	return "default"
+	return defaultKSAName
 }
 
 func (m *secretMaterializer) getWIFAudience() (string, error) {
