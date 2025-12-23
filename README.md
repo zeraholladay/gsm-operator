@@ -45,7 +45,7 @@ flowchart TB
         gsmsecret["GSMSecret CR"]
         controller["gsm-operator<br/>Controller"]
         mode{"Mode?"}
-        ksa["Kubernetes<br/>ServiceAccount"]
+        ksa["KSA w/ RBAC"]
         secret["Kubernetes Secret<br/>(Opaque)"]
     end
     
@@ -71,7 +71,7 @@ flowchart TB
     sts -->|"Validate"| wif
     wif -->|"Federated token"| impersonate
     impersonate -->|"Yes"| gsa
-    gsa -->|"Impersonate"| gsm
+    gsa -->|"GSA"| gsm
     impersonate -->|"No"| gsm
     
     %% Common return path
