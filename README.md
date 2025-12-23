@@ -50,24 +50,27 @@ flowchart TB
     end
     
     subgraph gcp["Google Cloud"]
-        wif["Workload Identity<br/>Federation Pool"]
-        sts["Security Token<br/>Service (STS)"]
-        gsa["Google Service<br/>Account (optional)"]
+        subgraph wifflow["WIF Mode"]
+            wif["Workload Identity<br/>Federation Pool"]
+            sts["Security Token<br/>Service (STS)"]
+            gsa["Google Service<br/>Account"]
+        end
         gsm["Secret Manager"]
     end
     
     gsmsecret -->|"1. Watch/Reconcile"| controller
     controller --> mode
     
-    %% Trusted Subsystem Mode (direct path)
-    mode -->|"true"| gsm
+    %% Trusted Subsystem Mode (direct path via ADC)
+    mode -->|"true (ADC)"| gsm
     
     %% WIF Mode
     mode -->|"false"| ksa
     ksa -->|"2. OIDC JWT"| sts
     sts -->|"3. Validate"| wif
     wif -->|"4. Federated token"| controller
-    controller -.->|"5. Impersonate<br/>(optional)"| gsa
+    controller -.->|"5. Impersonate (optional)"| gsa
+    gsa -.-> gsm
     controller -->|"6. Access secret"| gsm
     
     %% Common return path
@@ -83,6 +86,7 @@ flowchart TB
     style wif fill:#4285f4,color:#fff
     style sts fill:#4285f4,color:#fff
     style gsa fill:#4285f4,color:#fff
+    style wifflow fill:#e8f0fe,stroke:#4285f4
 ```
 
 ### Flow Description
