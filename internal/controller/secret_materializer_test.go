@@ -216,3 +216,89 @@ func TestGetGSAEmptyWhenWhitespaceOnly(t *testing.T) {
 		t.Fatalf("expected empty GSA when whitespace only, got %q", got)
 	}
 }
+
+// ==================== isTrustedSubsystem tests ====================
+
+func TestIsTrustedSubsystem_EnabledWithTrue(t *testing.T) {
+	t.Setenv("TRUSTED_SUBSYSTEM", "true")
+	m := &secretMaterializer{}
+
+	if !m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return true when TRUSTED_SUBSYSTEM=true")
+	}
+}
+
+func TestIsTrustedSubsystem_EnabledWithOne(t *testing.T) {
+	t.Setenv("TRUSTED_SUBSYSTEM", "1")
+	m := &secretMaterializer{}
+
+	if !m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return true when TRUSTED_SUBSYSTEM=1")
+	}
+}
+
+func TestIsTrustedSubsystem_EnabledWithTrueUppercase(t *testing.T) {
+	t.Setenv("TRUSTED_SUBSYSTEM", "TRUE")
+	m := &secretMaterializer{}
+
+	if !m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return true when TRUSTED_SUBSYSTEM=TRUE")
+	}
+}
+
+func TestIsTrustedSubsystem_DisabledWithFalse(t *testing.T) {
+	t.Setenv("TRUSTED_SUBSYSTEM", "false")
+	m := &secretMaterializer{}
+
+	if m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return false when TRUSTED_SUBSYSTEM=false")
+	}
+}
+
+func TestIsTrustedSubsystem_DisabledWithZero(t *testing.T) {
+	t.Setenv("TRUSTED_SUBSYSTEM", "0")
+	m := &secretMaterializer{}
+
+	if m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return false when TRUSTED_SUBSYSTEM=0")
+	}
+}
+
+func TestIsTrustedSubsystem_DisabledWhenEmpty(t *testing.T) {
+	t.Setenv("TRUSTED_SUBSYSTEM", "")
+	m := &secretMaterializer{}
+
+	if m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return false when TRUSTED_SUBSYSTEM is empty")
+	}
+}
+
+func TestIsTrustedSubsystem_DisabledWhenNotSet(t *testing.T) {
+	// Ensure the env var is not set (t.Setenv will restore it after the test)
+	t.Setenv("TRUSTED_SUBSYSTEM", "")
+	m := &secretMaterializer{}
+
+	if m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return false when TRUSTED_SUBSYSTEM is not set")
+	}
+}
+
+func TestIsTrustedSubsystem_DisabledWithInvalidValue(t *testing.T) {
+	t.Setenv("TRUSTED_SUBSYSTEM", "invalid")
+	m := &secretMaterializer{}
+
+	if m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return false for invalid values")
+	}
+}
+
+func TestIsTrustedSubsystem_DisabledWithEnabled(t *testing.T) {
+	// Note: "enabled" is NOT a valid boolean value for strconv.ParseBool
+	// Only "1", "t", "T", "true", "TRUE", "True" are truthy
+	t.Setenv("TRUSTED_SUBSYSTEM", "enabled")
+	m := &secretMaterializer{}
+
+	if m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return false for 'enabled' (not a valid bool)")
+	}
+}

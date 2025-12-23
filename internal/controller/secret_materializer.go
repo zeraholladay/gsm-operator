@@ -50,6 +50,13 @@ type keyedSecretPayload struct {
 	Value []byte
 }
 
+// If enabled, the operator acts as its own IAM principal.
+// This means
+func (m secretMaterializer) isTrustedSubsystem() bool {
+	enabled, _ := strconv.ParseBool(os.Getenv("TRUSTED_SUBSYSTEM"))
+	return enabled
+}
+
 // Get the KSA
 func (m *secretMaterializer) getKSA() string {
 	// Override the KSA via env var if your GKE RBAC requires a specific ServiceAccount (e.g., gsm-reader).

@@ -29,9 +29,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// getCredentials builds Google credentials for the current GSMSecret by
+// getGcpCreds builds Google credentials for the current GSMSecret by
 // requesting a KSA token and exchanging it via Workload Identity Federation.
-func (m *secretMaterializer) getCredentials(ctx context.Context) (*google.Credentials, error) {
+func (m *secretMaterializer) getGcpCreds(ctx context.Context) (*google.Credentials, error) {
 	log := logf.FromContext(ctx).WithValues(
 		"gsmsecret", m.gsmSecret.Name,
 		"namespace", m.gsmSecret.Namespace,

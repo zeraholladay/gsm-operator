@@ -1,27 +1,41 @@
-# gsm-operator (from Kubebuilder)
-GSMSecret is a static materialization operator that creates a Kubernetes
-Secret from a Google Secret Manager (GSM) secret.
+# gsm-operator
 
-Purpose:
-  - Bridge GSM to native Kubernetes Secrets in environments (e.g. Autopilot)
-    where CSI drivers or node plugins cannot be used.
-  - Allow workloads to consume GSM-managed secrets via standard Kubernetes
-    mechanisms such as envFrom, env.valueFrom.secretKeyRef, or Secret volumes.
+A Kubernetes operator that materializes Google Secret Manager (GSM) entries into native `Secret` objects via `GSMSecret` custom resources.
 
-Behavior:
-  - On creation (or spec change) of a GSMSecret resource, the operator fetches
-    the specified GSM secret version and creates or updates a Kubernetes Secret.
-  - No continuous sync or polling is performed; GSM changes are not propagated
-    unless the GSMSecret resource itself is modified or recreated.
-  - The operator runs entirely in the control plane using Workload Identity
-    and does not install node-level binaries.
+**Why?** For environments like GKE Autopilot where CSI drivers or node plugins cannot be used.
 
-Tradeoffs:
-  - Secrets are static once materialized.
-  - Secret rotation requires an explicit user action (e.g. version bump or
-    resource recreation).
+**How it works:**
+- Fetches GSM secrets on `GSMSecret` creation, spec change, or periodic resync (default: 5m).
+- Authenticates via Workload Identity Federation (per-tenant) or Trusted Subsystem mode (operator identity).
+- Runs in the control plane only—no node-level binaries. Designed for GKE Autopilot where node access is restricted.
 
-`gsm-operator` manages `GSMSecret` custom resources that materialize Google Secret Manager entries into Kubernetes `Secret` objects.
+**Tradeoff:** Secrets are point-in-time snapshots. GSM rotation requires a spec update or resync.
+
+### Authentication Modes
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| **WIF (default)** | Exchanges the tenant namespace's KSA token via Workload Identity Federation. Each namespace can have distinct GSM permissions. | Multi-tenant clusters with per-namespace IAM isolation. |
+| **Trusted Subsystem** | Operator uses its own identity (ADC). Set `TRUSTED_SUBSYSTEM=true`. | Single-tenant or when the operator should have centralized GSM access. |
+
+#### WIF Mode Configuration
+
+| Setting | Required | Default |
+|---------|----------|---------|
+| `WIFAUDIENCE` env / `secrets.pize.com/wif-audience` | Yes | — |
+| `KSA` env / `secrets.pize.com/ksa` | No | `default` |
+| `secrets.pize.com/gsa` annotation | No | — (no impersonation) |
+| `TOKEN_EXP_SECONDS` env | No | 600s |
+| `RESYNC_INTERVAL_SECONDS` env | No | 300s |
+
+> **Precedence:** Environment variables take precedence over annotations. If both are set, the env var wins.
+
+#### Trusted Subsystem Configuration
+
+| Setting | Required | Default |
+|---------|----------|---------|
+| `TRUSTED_SUBSYSTEM` env | Yes | — |
+| `RESYNC_INTERVAL_SECONDS` env | No | 300s |
 
 ## Architecture
 
@@ -42,12 +56,19 @@ flowchart TB
     end
     
     gsmsecret -->|"1. Watch/Reconcile"| controller
+    
+    %% WIF Mode (solid lines)
     controller -->|"2. Request token<br/>for KSA"| ksa
     ksa -->|"3. OIDC JWT"| controller
     controller -->|"4. Exchange token"| sts
     sts -->|"5. Validate via WIF"| wif
     wif -->|"6. Federated token"| controller
     controller -.->|"7. Impersonate<br/>(optional)"| gsa
+    
+    %% Trusted Subsystem Mode (dashed line, bypasses WIF)
+    controller -.->|"ADC (Trusted<br/>Subsystem)"| gsm
+    
+    %% Common path
     controller -->|"8. Access secret"| gsm
     gsm -->|"9. Secret payload"| controller
     controller -->|"10. Create/Update"| secret
@@ -64,6 +85,7 @@ flowchart TB
 
 ### Flow Description
 
+#### WIF Mode (default)
 1. **Watch/Reconcile**: Controller watches for GSMSecret CR changes
 2. **Request KSA Token**: Controller requests a short-lived OIDC token for the namespace's ServiceAccount
 3. **OIDC JWT**: Kubernetes issues a JWT with the configured WIF audience
@@ -74,6 +96,15 @@ flowchart TB
 8. **Access Secret**: Controller fetches the secret payload from GSM
 9. **Secret Payload**: GSM returns the secret data
 10. **Create/Update**: Controller creates or updates the target Kubernetes Secret
+
+#### Trusted Subsystem Mode
+1. **Watch/Reconcile**: Controller watches for GSMSecret CR changes
+2. **ADC**: Controller uses Application Default Credentials (operator's own identity)
+3. **Access Secret**: Controller fetches the secret payload from GSM directly
+4. **Secret Payload**: GSM returns the secret data
+5. **Create/Update**: Controller creates or updates the target Kubernetes Secret
+
+> Steps 2–7 of WIF mode are bypassed. The operator authenticates as itself rather than the tenant's identity.
 
 ## Configuration
 
@@ -96,10 +127,14 @@ metadata:
   name: my-gsm-secrets
   namespace: gsmsecret-test-ns
   annotations:
-    # Optional unless not set on the operator by env var WIFAUDIENCE
-    secrets.pize.com/wif-audience: "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider" # oidc_project_number is defined below
-    # secrets.pize.com/ksa: "custom-ksa" # optional: override Kubernetes SA used for WIF
-    # secrets.pize.com/gsa: "my-gsa@example.iam.gserviceaccount.com" # optional: override GCP SA when impersonation is enabled
+    # Trigger re-reconciliation by changing this value (works in both modes)
+    secrets.pize.com/release: "v1"
+    
+    # --- WIF mode only (ignored when TRUSTED_SUBSYSTEM=true) ---
+    # Required in WIF mode unless set globally via WIFAUDIENCE env var
+    secrets.pize.com/wif-audience: "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
+    # secrets.pize.com/ksa: "custom-ksa"  # optional: override Kubernetes SA used for WIF (default: "default")
+    # secrets.pize.com/gsa: "my-gsa@example.iam.gserviceaccount.com"  # optional: impersonate a GSA
 spec:
   targetSecret:
     name: my-secret             # name of K8s Secret
@@ -107,7 +142,7 @@ spec:
     - key: MY_ENVVAR
       projectId: "gcp-proj-id"  # GSM Secret project ID
       secretId: my-secret       # GSM secret name
-      version: "1"              # recommend pinning a version for true “static”
+      version: "1"              # recommend pinning a version for true "static"
 ```
 
 Creates a secret:
@@ -132,28 +167,16 @@ Usage:
 ...
 ```
 
-### Reconciliation Triggers
+### OIDC and wifAudience (WIF Mode Only)
 
-The controller uses predicates to optimize when reconciliation occurs, avoiding unnecessary work:
+> **Note:** This section applies only to WIF mode. In Trusted Subsystem mode, the operator uses ADC and this configuration is not required.
+>
+> **Trusted Subsystem principal:** Grant the operator's Workload Identity principal access to your secrets:
+> ```
+> principal://iam.googleapis.com/projects/${cluster_project_number}/locations/global/workloadIdentityPools/${CLUSTER_PROJECT_ID}.svc.id.goog/subject/ns/gsm-operator-system/sa/gsm-operator-controller-manager
+> ```
 
-| Change Type | Triggers Reconcile? |
-|-------------|---------------------|
-| `GSMSecret` `.spec` changes | Yes |
-| `secrets.pize.com/ksa` annotation changed | Yes |
-| `secrets.pize.com/gsa` annotation changed | Yes |
-| `secrets.pize.com/wif-audience` annotation changed | Yes |
-| `secrets.pize.com/release` annotation changed | Yes |
-| `GSMSecret` status-only update | No |
-| `GSMSecret` label changes | No |
-| Other annotation changes (e.g., `kubectl.kubernetes.io/last-applied-configuration`) | No |
-| Owned `Secret` data/type changed | Yes |
-| Owned `Secret` metadata-only update | No |
-
-The controller also requeues periodically (default: 5 minutes, configurable via `RESYNC_INTERVAL_SECONDS` env var) to pick up changes in Google Secret Manager.
-
-### OIDC and wifAudience
-
-The Operator functions as an identity broker using a Dynamic Impersonation pattern. Instead of using its own broad permissions, the Operator explicitly requests a short-lived token for the tenant's Kubernetes Service Account (`default` by default). It then exchanges this token via Google STS (OIDC) to access Secret Manager resources scoped specifically to that tenant identity. Because GKE's "Native" Workload Identity is a managed implementation designed to be "magic" and opaque (i.e., The native GKE integration does not expose a public Workload Identity Pool Provider resource for manual token exchange), we have to leverage Workload Identity Pools for non-trivial security.
+In WIF mode, the Operator functions as an identity broker using a Dynamic Impersonation pattern. Instead of using its own broad permissions, the Operator explicitly requests a short-lived token for the tenant's Kubernetes Service Account (`default` by default). It then exchanges this token via Google STS (OIDC) to access Secret Manager resources scoped specifically to that tenant identity. Because GKE's "Native" Workload Identity is a managed implementation designed to be "magic" and opaque (i.e., the native GKE integration does not expose a public Workload Identity Pool Provider resource for manual token exchange), we have to leverage Workload Identity Pools for non-trivial security.
 
 Build Workload Identity Pool & Provider:
 
@@ -226,7 +249,7 @@ gcloud iam workload-identity-pools delete gsm-operator-pool \
 - Access to a Kubernetes v1.11.3+ cluster.
 
 ### To Deploy on the cluster
-***Prerequisites:**
+**Prerequisites:**
 
 1. The artifact registry exists.
 2. You have permission to write to the registry, deploy to GKE, etc.
@@ -413,6 +436,26 @@ TODO(user): Add detailed information on how you would like others to contribute 
 **NOTE:** Run `make help` for more information on all potential `make` targets
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+
+
+### Reconciliation Triggers
+
+The controller uses predicates to optimize when reconciliation occurs, avoiding unnecessary work:
+
+| Change Type | Triggers Reconcile? |
+|-------------|---------------------|
+| `GSMSecret` `.spec` changes | Yes |
+| `secrets.pize.com/ksa` annotation changed | Yes |
+| `secrets.pize.com/gsa` annotation changed | Yes |
+| `secrets.pize.com/wif-audience` annotation changed | Yes |
+| `secrets.pize.com/release` annotation changed | Yes |
+| `GSMSecret` status-only update | No |
+| `GSMSecret` label changes | No |
+| Other annotation changes (e.g., `kubectl.kubernetes.io/last-applied-configuration`) | No |
+| Owned `Secret` data/type changed | Yes |
+| Owned `Secret` metadata-only update | No |
+
+The controller also requeues periodically (default: 5 minutes, configurable via `RESYNC_INTERVAL_SECONDS` env var) to pick up changes in Google Secret Manager.
 
 ## License
 
