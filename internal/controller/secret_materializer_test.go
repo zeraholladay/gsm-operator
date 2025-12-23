@@ -219,86 +219,58 @@ func TestGetGSAEmptyWhenWhitespaceOnly(t *testing.T) {
 
 // ==================== isTrustedSubsystem tests ====================
 
-func TestIsTrustedSubsystem_EnabledWithTrue(t *testing.T) {
-	t.Setenv("TRUSTED_SUBSYSTEM", "true")
+func TestIsTrustedSubsystem_EnabledWhenModeIsTrustedSubsystem(t *testing.T) {
+	t.Setenv("MODE", "TRUSTED_SUBSYSTEM")
 	m := &secretMaterializer{}
 
 	if !m.isTrustedSubsystem() {
-		t.Fatal("expected isTrustedSubsystem() to return true when TRUSTED_SUBSYSTEM=true")
+		t.Fatal("expected isTrustedSubsystem() to return true when MODE=TRUSTED_SUBSYSTEM")
 	}
 }
 
-func TestIsTrustedSubsystem_EnabledWithOne(t *testing.T) {
-	t.Setenv("TRUSTED_SUBSYSTEM", "1")
-	m := &secretMaterializer{}
-
-	if !m.isTrustedSubsystem() {
-		t.Fatal("expected isTrustedSubsystem() to return true when TRUSTED_SUBSYSTEM=1")
-	}
-}
-
-func TestIsTrustedSubsystem_EnabledWithTrueUppercase(t *testing.T) {
-	t.Setenv("TRUSTED_SUBSYSTEM", "TRUE")
-	m := &secretMaterializer{}
-
-	if !m.isTrustedSubsystem() {
-		t.Fatal("expected isTrustedSubsystem() to return true when TRUSTED_SUBSYSTEM=TRUE")
-	}
-}
-
-func TestIsTrustedSubsystem_DisabledWithFalse(t *testing.T) {
-	t.Setenv("TRUSTED_SUBSYSTEM", "false")
+func TestIsTrustedSubsystem_DisabledWhenModeIsWIF(t *testing.T) {
+	t.Setenv("MODE", "WIF")
 	m := &secretMaterializer{}
 
 	if m.isTrustedSubsystem() {
-		t.Fatal("expected isTrustedSubsystem() to return false when TRUSTED_SUBSYSTEM=false")
+		t.Fatal("expected isTrustedSubsystem() to return false when MODE=WIF")
 	}
 }
 
-func TestIsTrustedSubsystem_DisabledWithZero(t *testing.T) {
-	t.Setenv("TRUSTED_SUBSYSTEM", "0")
+func TestIsTrustedSubsystem_DisabledWhenModeIsEmpty(t *testing.T) {
+	t.Setenv("MODE", "")
 	m := &secretMaterializer{}
 
 	if m.isTrustedSubsystem() {
-		t.Fatal("expected isTrustedSubsystem() to return false when TRUSTED_SUBSYSTEM=0")
+		t.Fatal("expected isTrustedSubsystem() to return false when MODE is empty")
 	}
 }
 
-func TestIsTrustedSubsystem_DisabledWhenEmpty(t *testing.T) {
-	t.Setenv("TRUSTED_SUBSYSTEM", "")
-	m := &secretMaterializer{}
-
-	if m.isTrustedSubsystem() {
-		t.Fatal("expected isTrustedSubsystem() to return false when TRUSTED_SUBSYSTEM is empty")
-	}
-}
-
-func TestIsTrustedSubsystem_DisabledWhenNotSet(t *testing.T) {
+func TestIsTrustedSubsystem_DisabledWhenModeNotSet(t *testing.T) {
 	// Ensure the env var is not set (t.Setenv will restore it after the test)
-	t.Setenv("TRUSTED_SUBSYSTEM", "")
+	t.Setenv("MODE", "")
 	m := &secretMaterializer{}
 
 	if m.isTrustedSubsystem() {
-		t.Fatal("expected isTrustedSubsystem() to return false when TRUSTED_SUBSYSTEM is not set")
+		t.Fatal("expected isTrustedSubsystem() to return false when MODE is not set")
 	}
 }
 
-func TestIsTrustedSubsystem_DisabledWithInvalidValue(t *testing.T) {
-	t.Setenv("TRUSTED_SUBSYSTEM", "invalid")
+func TestIsTrustedSubsystem_DisabledForOtherValues(t *testing.T) {
+	t.Setenv("MODE", "other")
 	m := &secretMaterializer{}
 
 	if m.isTrustedSubsystem() {
-		t.Fatal("expected isTrustedSubsystem() to return false for invalid values")
+		t.Fatal("expected isTrustedSubsystem() to return false for MODE=other")
 	}
 }
 
-func TestIsTrustedSubsystem_DisabledWithEnabled(t *testing.T) {
-	// Note: "enabled" is NOT a valid boolean value for strconv.ParseBool
-	// Only "1", "t", "T", "true", "TRUE", "True" are truthy
-	t.Setenv("TRUSTED_SUBSYSTEM", "enabled")
+func TestIsTrustedSubsystem_CaseSensitive(t *testing.T) {
+	// MODE check is case-sensitive; "trusted_subsystem" should NOT match
+	t.Setenv("MODE", "trusted_subsystem")
 	m := &secretMaterializer{}
 
 	if m.isTrustedSubsystem() {
-		t.Fatal("expected isTrustedSubsystem() to return false for 'enabled' (not a valid bool)")
+		t.Fatal("expected isTrustedSubsystem() to return false for lowercase 'trusted_subsystem'")
 	}
 }

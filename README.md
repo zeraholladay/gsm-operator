@@ -16,7 +16,7 @@ A Kubernetes operator that materializes Google Secret Manager (GSM) entries into
 | Mode | Description | Use Case |
 |------|-------------|----------|
 | **WIF (default)** | Exchanges the tenant namespace's KSA token via Workload Identity Federation. Each namespace can have distinct GSM permissions. | Multi-tenant clusters with per-namespace IAM isolation. |
-| **Trusted Subsystem** | Operator uses its own identity (ADC). Set `TRUSTED_SUBSYSTEM=true`. | Single-tenant or when the operator should have centralized GSM access. |
+| **Trusted Subsystem** | Operator uses its own identity (ADC). Set `MODE=TRUSTED_SUBSYSTEM`. | Single-tenant or when the operator should have centralized GSM access. |
 
 #### WIF Mode Configuration
 
@@ -34,7 +34,7 @@ A Kubernetes operator that materializes Google Secret Manager (GSM) entries into
 
 | Setting | Required | Default |
 |---------|----------|---------|
-| `TRUSTED_SUBSYSTEM` env | Yes | — |
+| `MODE` env | Yes (`TRUSTED_SUBSYSTEM`) | — |
 | `RESYNC_INTERVAL_SECONDS` env | No | 300s |
 
 ## Architecture
@@ -138,7 +138,7 @@ metadata:
     # Trigger re-reconciliation by changing this value (works in both modes)
     secrets.pize.com/release: "v1"
     
-    # --- WIF mode only (ignored when TRUSTED_SUBSYSTEM=true) ---
+    # --- WIF mode only (ignored when MODE=TRUSTED_SUBSYSTEM) ---
     # Required in WIF mode unless set globally via WIFAUDIENCE env var
     secrets.pize.com/wif-audience: "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
     # secrets.pize.com/ksa: "custom-ksa"  # optional: override Kubernetes SA used for WIF (default: "default")
