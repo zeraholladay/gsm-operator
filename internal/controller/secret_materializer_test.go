@@ -216,3 +216,61 @@ func TestGetGSAEmptyWhenWhitespaceOnly(t *testing.T) {
 		t.Fatalf("expected empty GSA when whitespace only, got %q", got)
 	}
 }
+
+// ==================== isTrustedSubsystem tests ====================
+
+func TestIsTrustedSubsystem_EnabledWhenModeIsTrustedSubsystem(t *testing.T) {
+	t.Setenv("MODE", "TRUSTED_SUBSYSTEM")
+	m := &secretMaterializer{}
+
+	if !m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return true when MODE=TRUSTED_SUBSYSTEM")
+	}
+}
+
+func TestIsTrustedSubsystem_DisabledWhenModeIsWIF(t *testing.T) {
+	t.Setenv("MODE", "WIF")
+	m := &secretMaterializer{}
+
+	if m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return false when MODE=WIF")
+	}
+}
+
+func TestIsTrustedSubsystem_DisabledWhenModeIsEmpty(t *testing.T) {
+	t.Setenv("MODE", "")
+	m := &secretMaterializer{}
+
+	if m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return false when MODE is empty")
+	}
+}
+
+func TestIsTrustedSubsystem_DisabledWhenModeNotSet(t *testing.T) {
+	// Ensure the env var is not set (t.Setenv will restore it after the test)
+	t.Setenv("MODE", "")
+	m := &secretMaterializer{}
+
+	if m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return false when MODE is not set")
+	}
+}
+
+func TestIsTrustedSubsystem_DisabledForOtherValues(t *testing.T) {
+	t.Setenv("MODE", "other")
+	m := &secretMaterializer{}
+
+	if m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return false for MODE=other")
+	}
+}
+
+func TestIsTrustedSubsystem_CaseSensitive(t *testing.T) {
+	// MODE check is case-sensitive; "trusted_subsystem" should NOT match
+	t.Setenv("MODE", "trusted_subsystem")
+	m := &secretMaterializer{}
+
+	if m.isTrustedSubsystem() {
+		t.Fatal("expected isTrustedSubsystem() to return false for lowercase 'trusted_subsystem'")
+	}
+}

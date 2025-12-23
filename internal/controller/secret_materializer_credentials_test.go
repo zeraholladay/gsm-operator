@@ -298,7 +298,7 @@ func TestGetCredentials_MissingWIFAudience(t *testing.T) {
 		},
 	}
 
-	_, err := m.getCredentials(context.Background())
+	_, err := m.getGcpCreds(context.Background())
 	if err == nil {
 		t.Fatal("expected error when WIF audience is missing")
 	}
@@ -325,7 +325,7 @@ func TestGetCredentials_KSATokenRequestFails(t *testing.T) {
 		},
 	}
 
-	_, err := m.getCredentials(context.Background())
+	_, err := m.getGcpCreds(context.Background())
 	if err == nil {
 		t.Fatal("expected error when KSA token request fails")
 	}

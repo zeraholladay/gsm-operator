@@ -66,9 +66,9 @@ type GSMSecretReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=secrets.pize.com,resources=gsmsecrets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=secrets.pize.com,resources=gsmsecrets/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=secrets.pize.com,resources=gsmsecrets/finalizers,verbs=update
+// +kubebuilder:rbac:groups=secrets.gsm-operator.io,resources=gsmsecrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=secrets.gsm-operator.io,resources=gsmsecrets/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=secrets.gsm-operator.io,resources=gsmsecrets/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 func (r *GSMSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)

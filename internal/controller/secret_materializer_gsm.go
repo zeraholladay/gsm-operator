@@ -44,20 +44,10 @@ func (m *secretMaterializer) resolvePayloads(ctx context.Context) error {
 		return nil
 	}
 
-	// STEP 1: Exchange the KSA token for Google credentials via WIF.
-	log.Info("exchanging Kubernetes ServiceAccount token via Workload Identity Federation")
-	creds, err := m.getCredentials(ctx)
+	// STEP 1: Build a Secret Manager client bound to the tenant identity via WIF.
+	client, err := m.newGsmClient(ctx)
 	if err != nil {
-		log.Error(err, "failed to exchange KSA token for Google credentials")
-		return fmt.Errorf("exchange KSA token for Google credentials: %w", err)
-	}
-
-	// STEP 2: Build a Secret Manager client bound to the tenant identity.
-	log.Info("creating Google Secret Manager client with federated credentials")
-	client, err := secretmanager.NewClient(ctx, option.WithCredentials(creds))
-	if err != nil {
-		log.Error(err, "failed to create Secret Manager client")
-		return fmt.Errorf("secretmanager.NewClient: %w", err)
+		return err
 	}
 	defer func() {
 		if cerr := client.Close(); cerr != nil {
@@ -65,7 +55,7 @@ func (m *secretMaterializer) resolvePayloads(ctx context.Context) error {
 		}
 	}()
 
-	// STEP 3: Read each configured GSM secret entry and collect their payloads
+	// STEP 2: Read each configured GSM secret entry and collect their payloads
 	// so they can be materialized into the target Kubernetes Secret.
 	results, err := m.fetchSecretEntriesPayloads(ctx, client)
 	if err != nil {
@@ -76,6 +66,41 @@ func (m *secretMaterializer) resolvePayloads(ctx context.Context) error {
 	m.payloads = results
 
 	return nil
+}
+
+// newGsmClient exchanges the Kubernetes ServiceAccount token for Google credentials
+// via Workload Identity Federation and returns a Secret Manager client.
+func (m *secretMaterializer) newGsmClient(ctx context.Context) (*secretmanager.Client, error) {
+	log := logf.FromContext(ctx)
+
+	// Is in "Trusted Subsystem" mode?
+	if m.isTrustedSubsystem() {
+		log.Info("using trusted subsystem mode: operator acting as its own IAM principal")
+		client, err := secretmanager.NewClient(ctx)
+		if err != nil {
+			log.Error(err, "failed to create Secret Manager client in trusted subsystem mode")
+			return nil, fmt.Errorf("secretmanager.NewClient (trusted subsystem): %w", err)
+		}
+		return client, nil
+	}
+
+	// Exchange the KSA token for Google credentials via WIF.
+	log.Info("exchanging Kubernetes ServiceAccount token via Workload Identity Federation")
+	creds, err := m.getGcpCreds(ctx)
+	if err != nil {
+		log.Error(err, "failed to exchange KSA token for Google credentials")
+		return nil, fmt.Errorf("exchange KSA token for Google credentials: %w", err)
+	}
+
+	// Build a Secret Manager client bound to the tenant identity.
+	log.Info("creating Google Secret Manager client with federated credentials")
+	client, err := secretmanager.NewClient(ctx, option.WithCredentials(creds))
+	if err != nil {
+		log.Error(err, "failed to create Secret Manager client")
+		return nil, fmt.Errorf("secretmanager.NewClient WithCredentials: %w", err)
+	}
+
+	return client, nil
 }
 
 // fetchSecretEntriesPayloads reads each configured GSM secret entry from Google

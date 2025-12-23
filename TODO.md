@@ -1,6 +1,6 @@
 ## TODO
 
-Last updated: 2025-12-22
+Last updated: 2025-12-23
 
 - [x] Validate key format: Each key must consist of alphanumeric characters, '-', '_' or '.'.
 - [x] Add info to Secret if problems.
@@ -21,4 +21,5 @@ Last updated: 2025-12-22
 - [x] Add architecture flow diagram
 - [x] Make resync interval configurable (currently hardcoded to 5 minutes)
 - [x] Configurable logging levels.
-- [ ] GCP Parameter Manager
+- [ ] Trusted subsystem mode: use the identity of the operator.
+- [ ] Support Secrets in JSON format

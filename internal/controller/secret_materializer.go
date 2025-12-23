@@ -50,6 +50,16 @@ type keyedSecretPayload struct {
 	Value []byte
 }
 
+// isTrustedSubsystem returns true if MODE=TRUSTED_SUBSYSTEM.
+// In Trusted Subsystem mode, the operator acts as its own IAM principal
+// (i.e., KSA gsm-operator-controller-manager by default) and will not:
+// 1. Request a short-lived JWT for the tenant KSA.
+// 2. Exchange Kubernetes ServiceAccount token via Workload Identity Federation.
+// 3. Impersonate a GSA.
+func (m secretMaterializer) isTrustedSubsystem() bool {
+	return os.Getenv("MODE") == "TRUSTED_SUBSYSTEM"
+}
+
 // Get the KSA
 func (m *secretMaterializer) getKSA() string {
 	// Override the KSA via env var if your GKE RBAC requires a specific ServiceAccount (e.g., gsm-reader).

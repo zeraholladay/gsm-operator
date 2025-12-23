@@ -262,7 +262,7 @@ func TestTargetSecretNameMinLength(t *testing.T) {
 func loadSpecSchema(t *testing.T) *apiextensionsv1.JSONSchemaProps {
 	t.Helper()
 
-	crdPath := filepath.Join("..", "..", "config", "crd", "bases", "secrets.pize.com_gsmsecrets.yaml")
+	crdPath := filepath.Join("..", "..", "config", "crd", "bases", "secrets.gsm-operator.io_gsmsecrets.yaml")
 
 	rawCRD, err := os.ReadFile(crdPath)
 	if err != nil {
@@ -316,17 +316,17 @@ func TestAnnotationConstants(t *testing.T) {
 		{
 			name:     "AnnotationKSA",
 			constant: AnnotationKSA,
-			expected: "secrets.pize.com/ksa",
+			expected: "secrets.gsm-operator.io/ksa",
 		},
 		{
 			name:     "AnnotationGSA",
 			constant: AnnotationGSA,
-			expected: "secrets.pize.com/gsa",
+			expected: "secrets.gsm-operator.io/gsa",
 		},
 		{
 			name:     "AnnotationWIFAudience",
 			constant: AnnotationWIFAudience,
-			expected: "secrets.pize.com/wif-audience",
+			expected: "secrets.gsm-operator.io/wif-audience",
 		},
 	}
 
@@ -340,7 +340,7 @@ func TestAnnotationConstants(t *testing.T) {
 }
 
 func TestAnnotationConstantsHaveCorrectPrefix(t *testing.T) {
-	const expectedPrefix = "secrets.pize.com/"
+	const expectedPrefix = "secrets.gsm-operator.io/"
 
 	annotations := []string{AnnotationKSA, AnnotationGSA, AnnotationWIFAudience}
 	for _, ann := range annotations {
@@ -478,8 +478,8 @@ func TestGSMSecretIsNamespaced(t *testing.T) {
 func TestGSMSecretGroupAndNames(t *testing.T) {
 	crd := loadCRD(t)
 
-	if crd.Spec.Group != "secrets.pize.com" {
-		t.Errorf("group = %q, want 'secrets.pize.com'", crd.Spec.Group)
+	if crd.Spec.Group != "secrets.gsm-operator.io" {
+		t.Errorf("group = %q, want 'secrets.gsm-operator.io'", crd.Spec.Group)
 	}
 
 	if crd.Spec.Names.Kind != "GSMSecret" {
@@ -522,7 +522,7 @@ func TestGSMSecretSchemeRegistration(t *testing.T) {
 }
 
 func TestGroupVersionString(t *testing.T) {
-	expected := "secrets.pize.com/v1alpha1"
+	expected := "secrets.gsm-operator.io/v1alpha1"
 	if GroupVersion.String() != expected {
 		t.Errorf("GroupVersion.String() = %q, want %q", GroupVersion.String(), expected)
 	}
@@ -534,7 +534,7 @@ func TestGSMSecretDeepCopy(t *testing.T) {
 	original := &GSMSecret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "GSMSecret",
-			APIVersion: "secrets.pize.com/v1alpha1",
+			APIVersion: "secrets.gsm-operator.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-gsmsecret",
@@ -853,7 +853,7 @@ func loadRootSchema(t *testing.T) *apiextensionsv1.JSONSchemaProps {
 func loadCRD(t *testing.T) *apiextensionsv1.CustomResourceDefinition {
 	t.Helper()
 
-	crdPath := filepath.Join("..", "..", "config", "crd", "bases", "secrets.pize.com_gsmsecrets.yaml")
+	crdPath := filepath.Join("..", "..", "config", "crd", "bases", "secrets.gsm-operator.io_gsmsecrets.yaml")
 
 	rawCRD, err := os.ReadFile(crdPath)
 	if err != nil {
