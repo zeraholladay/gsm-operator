@@ -60,23 +60,23 @@ flowchart TB
     end
     
     gsmsecret -->|"1. Watch/Reconcile"| controller
-    controller --> mode
+    controller -->|"2. Operator Mode"| mode
     
     %% Trusted Subsystem Mode (direct path via ADC)
     mode -->|"Trusted Subsystem"| gsm
     
     %% WIF Mode
     mode -->|"WIF"| ksa
-    ksa -->|"2. OIDC JWT"| sts
-    sts -->|"3. Validate"| wif
-    wif -->|"4. Federated token"| impersonate
+    ksa -->|"OIDC JWT"| sts
+    sts -->|"Validate"| wif
+    wif -->|"Federated token"| impersonate
     impersonate -->|"Yes"| gsa
-    gsa -->|"5. Impersonate"| gsm
+    gsa -->|"Impersonate"| gsm
     impersonate -->|"No"| gsm
     
     %% Common return path
     gsm -->|"Secret payload"| controller
-    controller -->|"Create/Update"| secret
+    controller -->|"3. Create/Update"| secret
 
     style gsmsecret fill:#326ce5,color:#fff
     style secret fill:#326ce5,color:#fff
