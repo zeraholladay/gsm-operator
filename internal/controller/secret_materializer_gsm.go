@@ -45,7 +45,7 @@ func (m *secretMaterializer) resolvePayloads(ctx context.Context) error {
 	}
 
 	// STEP 1: Build a Secret Manager client bound to the tenant identity via WIF.
-	client, err := m.newGSMClient(ctx)
+	client, err := m.newGsmClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -68,9 +68,9 @@ func (m *secretMaterializer) resolvePayloads(ctx context.Context) error {
 	return nil
 }
 
-// newGSMClient exchanges the Kubernetes ServiceAccount token for Google credentials
+// newGsmClient exchanges the Kubernetes ServiceAccount token for Google credentials
 // via Workload Identity Federation and returns a Secret Manager client.
-func (m *secretMaterializer) newGSMClient(ctx context.Context) (*secretmanager.Client, error) {
+func (m *secretMaterializer) newGsmClient(ctx context.Context) (*secretmanager.Client, error) {
 	log := logf.FromContext(ctx)
 
 	// Is in "Trusted Subsystem" mode?

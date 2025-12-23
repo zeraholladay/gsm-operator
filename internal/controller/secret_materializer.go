@@ -50,8 +50,12 @@ type keyedSecretPayload struct {
 	Value []byte
 }
 
-// If enabled, the operator acts as its own IAM principal.
-// This means
+// If enabled, the operator acts as its own IAM principal (i.e. a truest subsystem).
+// This means that if enabled the operator acts as its own identity (i.e. KSA gsm-operator-controller-manager by default)
+// This means that if enabled the operator *will not*:
+// 1. Request a short-lived JWT for the tenant KSA.
+// 2. Exchange Kubernetes ServiceAccount token via Workload Identity Federation.
+// 2.a Impersonate a GSA.
 func (m secretMaterializer) isTrustedSubsystem() bool {
 	enabled, _ := strconv.ParseBool(os.Getenv("TRUSTED_SUBSYSTEM"))
 	return enabled
