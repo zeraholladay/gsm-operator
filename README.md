@@ -44,6 +44,7 @@ flowchart TB
     subgraph k8s["Kubernetes Cluster"]
         gsmsecret["GSMSecret CR"]
         controller["gsm-operator<br/>Controller"]
+        mode{"TRUSTED_SUBSYSTEM?"}
         ksa["Kubernetes<br/>ServiceAccount"]
         secret["Kubernetes Secret<br/>(Opaque)"]
     end
@@ -56,27 +57,28 @@ flowchart TB
     end
     
     gsmsecret -->|"1. Watch/Reconcile"| controller
+    controller --> mode
     
-    %% WIF Mode (solid lines)
-    controller -->|"2. Request token<br/>for KSA"| ksa
-    ksa -->|"3. OIDC JWT"| controller
-    controller -->|"4. Exchange token"| sts
-    sts -->|"5. Validate via WIF"| wif
-    wif -->|"6. Federated token"| controller
-    controller -.->|"7. Impersonate<br/>(optional)"| gsa
+    %% Trusted Subsystem Mode (direct path)
+    mode -->|"true"| gsm
     
-    %% Trusted Subsystem Mode (dashed line, bypasses WIF)
-    controller -.->|"ADC (Trusted<br/>Subsystem)"| gsm
+    %% WIF Mode
+    mode -->|"false"| ksa
+    ksa -->|"2. OIDC JWT"| sts
+    sts -->|"3. Validate"| wif
+    wif -->|"4. Federated token"| controller
+    controller -.->|"5. Impersonate<br/>(optional)"| gsa
+    controller -->|"6. Access secret"| gsm
     
-    %% Common path
-    controller -->|"8. Access secret"| gsm
-    gsm -->|"9. Secret payload"| controller
-    controller -->|"10. Create/Update"| secret
+    %% Common return path
+    gsm -->|"Secret payload"| controller
+    controller -->|"Create/Update"| secret
 
     style gsmsecret fill:#326ce5,color:#fff
     style secret fill:#326ce5,color:#fff
     style controller fill:#326ce5,color:#fff
     style ksa fill:#326ce5,color:#fff
+    style mode fill:#f5a623,color:#000
     style gsm fill:#4285f4,color:#fff
     style wif fill:#4285f4,color:#fff
     style sts fill:#4285f4,color:#fff
