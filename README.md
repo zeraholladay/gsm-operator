@@ -93,24 +93,20 @@ flowchart TB
 
 ### Flow Description
 
-#### WIF Mode (default)
+**Common steps:**
 1. **Watch/Reconcile**: Controller watches for GSMSecret CR changes
-2. **Request KSA Token**: Controller requests a short-lived OIDC token for the namespace's ServiceAccount
-3. **OIDC JWT**: Kubernetes issues a JWT with the configured WIF audience
-4. **Exchange Token**: Controller sends the K8s JWT to Google STS
-5. **Validate via WIF**: STS validates the token against the Workload Identity Pool
-6. **Federated Token**: STS returns a Google access token
-7. **Impersonate (optional)**: If `secrets.pize.com/gsa` annotation is set, exchange for impersonated credentials
-8. **Access Secret**: Controller fetches the secret payload from GSM
-9. **Secret Payload**: GSM returns the secret data
-10. **Create/Update**: Controller creates or updates the target Kubernetes Secret
+2. **Operator Mode**: Controller checks `MODE` env var to determine authentication path
+3. **Create/Update**: Controller creates or updates the target Kubernetes Secret
+
+#### WIF Mode (default)
+- **KSA w/ RBAC**: Controller requests a short-lived OIDC JWT for the namespace's ServiceAccount
+- **STS**: Controller sends the K8s JWT to Google Security Token Service
+- **WIF**: STS validates the token against the Workload Identity Federation Pool and returns a federated token
+- **GSA? (optional)**: If `secrets.pize.com/gsa` annotation is set, impersonate the Google Service Account
+- **Secret Manager**: Fetch secret payload using federated (or impersonated) credentials
 
 #### Trusted Subsystem Mode
-1. **Watch/Reconcile**: Controller watches for GSMSecret CR changes
-2. **ADC**: Controller uses Application Default Credentials (operator's own identity)
-3. **Access Secret**: Controller fetches the secret payload from GSM directly
-4. **Secret Payload**: GSM returns the secret data
-5. **Create/Update**: Controller creates or updates the target Kubernetes Secret
+- **Secret Manager**: Controller uses Application Default Credentials (operator's own identity) to fetch secret payload directly
 
 > Steps 2–7 of WIF mode are bypassed. The operator authenticates as itself rather than the tenant's identity.
 
