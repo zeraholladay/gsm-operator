@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: us-docker.pkg.dev/wf-gcp-us-plat-gar-dev/gsm-operator/gsm-operator
-  newTag: 45403d2
+  newTag: f7d1ddc

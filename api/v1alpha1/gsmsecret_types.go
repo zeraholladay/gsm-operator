@@ -20,10 +20,10 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // Annotation keys for configuration overrides.
 const (
-	AnnotationKSA         = "secrets.pize.com/ksa"
-	AnnotationGSA         = "secrets.pize.com/gsa"
-	AnnotationWIFAudience = "secrets.pize.com/wif-audience"
-	AnnotationRelease     = "secrets.pize.com/release"
+	AnnotationKSA         = "secrets.gsm-operator.io/ksa"
+	AnnotationGSA         = "secrets.gsm-operator.io/gsa"
+	AnnotationWIFAudience = "secrets.gsm-operator.io/wif-audience"
+	AnnotationRelease     = "secrets.gsm-operator.io/release"
 )
 
 // GSMSecretSpec defines the desired state of GSMSecret.

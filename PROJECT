@@ -3,7 +3,7 @@
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
 cliVersion: 4.10.1
-domain: pize.com
+domain: gsm-operator.io
 layout:
 - go.kubebuilder.io/v4
 plugins:
@@ -17,8 +17,8 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: pize.com
-  group: secrets.pize.com
+  domain: gsm-operator.io
+  group: secrets.gsm-operator.io
   kind: GSMSecret
   path: github.com/zeraholladay/gsm-operator/api/v1alpha1
   version: v1alpha1

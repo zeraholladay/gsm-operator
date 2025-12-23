@@ -22,9 +22,9 @@ A Kubernetes operator that materializes Google Secret Manager (GSM) entries into
 
 | Setting | Required | Default |
 |---------|----------|---------|
-| `WIFAUDIENCE` env / `secrets.pize.com/wif-audience` | Yes | — |
-| `KSA` env / `secrets.pize.com/ksa` | No | `default` |
-| `secrets.pize.com/gsa` annotation | No | — (no impersonation) |
+| `WIFAUDIENCE` env / `secrets.gsm-operator.io/wif-audience` | Yes | — |
+| `KSA` env / `secrets.gsm-operator.io/ksa` | No | `default` |
+| `secrets.gsm-operator.io/gsa` annotation | No | — (no impersonation) |
 | `TOKEN_EXP_SECONDS` env | No | 600s |
 | `RESYNC_INTERVAL_SECONDS` env | No | 300s |
 
@@ -102,7 +102,7 @@ flowchart TB
 - **KSA w/ RBAC**: Controller requests a short-lived OIDC JWT for the namespace's ServiceAccount
 - **STS**: Controller sends the K8s JWT to Google Security Token Service
 - **WIF**: STS validates the token against the Workload Identity Federation Pool and returns a federated token
-- **GSA? (optional)**: If `secrets.pize.com/gsa` annotation is set, impersonate the Google Service Account
+- **GSA? (optional)**: If `secrets.gsm-operator.io/gsa` annotation is set, impersonate the Google Service Account
 - **Secret Manager**: Fetch secret payload using federated (or impersonated) credentials
 
 #### Trusted Subsystem Mode
@@ -125,20 +125,20 @@ cp env.sample .env          # copy the template
 Example `GSMSecret`:
 
 ```yaml
-apiVersion: secrets.pize.com/v1alpha1
+apiVersion: secrets.gsm-operator.io/v1alpha1
 kind: GSMSecret
 metadata:
   name: my-gsm-secrets
   namespace: gsmsecret-test-ns
   annotations:
     # Trigger re-reconciliation by changing this value (works in both modes)
-    secrets.pize.com/release: "v1"
+    secrets.gsm-operator.io/release: "v1"
     
     # --- WIF mode only (ignored when MODE=TRUSTED_SUBSYSTEM) ---
     # Required in WIF mode unless set globally via WIFAUDIENCE env var
-    secrets.pize.com/wif-audience: "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
-    # secrets.pize.com/ksa: "custom-ksa"  # optional: override Kubernetes SA used for WIF (default: "default")
-    # secrets.pize.com/gsa: "my-gsa@example.iam.gserviceaccount.com"  # optional: impersonate a GSA
+    secrets.gsm-operator.io/wif-audience: "//iam.googleapis.com/projects/${oidc_project_number}/locations/global/workloadIdentityPools/gsm-operator-pool/providers/gsm-operator-provider"
+    # secrets.gsm-operator.io/ksa: "custom-ksa"  # optional: override Kubernetes SA used for WIF (default: "default")
+    # secrets.gsm-operator.io/gsa: "my-gsa@example.iam.gserviceaccount.com"  # optional: impersonate a GSA
 spec:
   targetSecret:
     name: my-secret             # name of K8s Secret
@@ -318,7 +318,7 @@ gcloud secrets add-iam-policy-binding bogus-test \
     --member="serviceAccount:${sa_email}"
 ```
 
-2. Add the annotation `secrets.pize.com/gsa: "${sa_email}"` to `config/samples/secrets.pize.com_v1alpha1_gsmsecret.yaml` on `GSMSecret`.
+2. Add the annotation `secrets.gsm-operator.io/gsa: "${sa_email}"` to `config/samples/secrets.gsm-operator.io_v1alpha1_gsmsecret.yaml` on `GSMSecret`.
 
 ### Setup
 
@@ -360,7 +360,7 @@ privileges or be logged in as admin.
 1. You can apply the samples (examples) from the config/sample:
 
 ```sh
-envsubst < config/samples/secrets.pize.com_v1alpha1_gsmsecret.yaml | kubectl apply -f -
+envsubst < config/samples/secrets.gsm-operator.io_v1alpha1_gsmsecret.yaml | kubectl apply -f -
 ```
 
 2. Verify the secret was created:
@@ -375,7 +375,7 @@ kubectl get Secret my-secret  -o yaml
 **Delete the instances (CRs) from the cluster:**
 
 ```sh
-envsubst < config/samples/secrets.pize.com_v1alpha1_gsmsecret.yaml | kubectl delete -f -
+envsubst < config/samples/secrets.gsm-operator.io_v1alpha1_gsmsecret.yaml | kubectl delete -f -
 ```
 
 **Delete the APIs(CRDs) from the cluster:**
@@ -442,17 +442,17 @@ TODO(user): Add detailed information on how you would like others to contribute 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
 
-### Reconciliation Triggers
+## Reconciliation Triggers
 
 The controller uses predicates to optimize when reconciliation occurs, avoiding unnecessary work:
 
 | Change Type | Triggers Reconcile? |
 |-------------|---------------------|
 | `GSMSecret` `.spec` changes | Yes |
-| `secrets.pize.com/ksa` annotation changed | Yes |
-| `secrets.pize.com/gsa` annotation changed | Yes |
-| `secrets.pize.com/wif-audience` annotation changed | Yes |
-| `secrets.pize.com/release` annotation changed | Yes |
+| `secrets.gsm-operator.io/ksa` annotation changed | Yes |
+| `secrets.gsm-operator.io/gsa` annotation changed | Yes |
+| `secrets.gsm-operator.io/wif-audience` annotation changed | Yes |
+| `secrets.gsm-operator.io/release` annotation changed | Yes |
 | `GSMSecret` status-only update | No |
 | `GSMSecret` label changes | No |
 | Other annotation changes (e.g., `kubectl.kubernetes.io/last-applied-configuration`) | No |
