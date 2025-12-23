@@ -44,15 +44,16 @@ flowchart TB
     subgraph k8s["Kubernetes Cluster"]
         gsmsecret["GSMSecret CR"]
         controller["gsm-operator<br/>Controller"]
-        mode{"TRUSTED_SUBSYSTEM?"}
+        mode{"Mode?"}
         ksa["Kubernetes<br/>ServiceAccount"]
         secret["Kubernetes Secret<br/>(Opaque)"]
     end
     
     subgraph gcp["Google Cloud"]
         subgraph wifflow["WIF Mode"]
-            wif["Workload Identity<br/>Federation Pool"]
             sts["Security Token<br/>Service (STS)"]
+            wif["Workload Identity<br/>Federation Pool"]
+            impersonate{"GSA?"}
             gsa["Google Service<br/>Account"]
         end
         gsm["Secret Manager"]
@@ -62,16 +63,16 @@ flowchart TB
     controller --> mode
     
     %% Trusted Subsystem Mode (direct path via ADC)
-    mode -->|"true (ADC)"| gsm
+    mode -->|"Trusted Subsystem"| gsm
     
     %% WIF Mode
-    mode -->|"false"| ksa
+    mode -->|"WIF"| ksa
     ksa -->|"2. OIDC JWT"| sts
     sts -->|"3. Validate"| wif
-    wif -->|"4. Federated token"| controller
-    controller -.->|"5. Impersonate (optional)"| gsa
-    gsa -.-> gsm
-    controller -->|"6. Access secret"| gsm
+    wif -->|"4. Federated token"| impersonate
+    impersonate -->|"Yes"| gsa
+    gsa -->|"5. Impersonate"| gsm
+    impersonate -->|"No"| gsm
     
     %% Common return path
     gsm -->|"Secret payload"| controller
@@ -82,6 +83,7 @@ flowchart TB
     style controller fill:#326ce5,color:#fff
     style ksa fill:#326ce5,color:#fff
     style mode fill:#f5a623,color:#000
+    style impersonate fill:#f5a623,color:#000
     style gsm fill:#4285f4,color:#fff
     style wif fill:#4285f4,color:#fff
     style sts fill:#4285f4,color:#fff
