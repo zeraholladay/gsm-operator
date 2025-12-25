@@ -441,6 +441,75 @@ TODO(user): Add detailed information on how you would like others to contribute 
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
+## Secrets Using JSON Pointer (RFC 6901)
+
+When `keys` is set (mutually exclusive with `key`), the operator treats the GSM secret payload as JSON and interprets each `value` as a JSON Pointer path from the root of that document.
+
+Example payload stored in GSM:
+
+```json
+{
+  "ENVVAR1": "foo",
+  "ENVVAR2": "bar"
+}
+```
+
+Example `GSMSecret` that maps two keys from that JSON payload:
+
+```yaml
+apiVersion: secrets.gsm-operator.io/v1alpha1
+kind: GSMSecret
+metadata:
+  name: my-gsm-secrets
+  namespace: gsmsecret-test-ns
+spec:
+  targetSecret:
+    name: my-secret             # name of the K8s Secret to write
+  gsmSecrets:
+    - keys:
+        - key: ENVVAR1
+          value: /ENVVAR1
+        - key: ENVVAR2
+          value: /ENVVAR2
+      projectId: "gcp-proj-id"  # GSM Secret project ID
+      secretId: my-secret       # GSM secret name
+      version: "1"              # recommend pinning a version for stability
+```
+
+Additionally, when a `key` entry inside `keys` starts with `/`, it is treated as a JSON Pointer into the GSM secret’s JSON payload and must resolve to a string matching the allowed key pattern (`^[A-Za-z0-9._-]+$`). The corresponding `value` is also a JSON Pointer into the same payload. `key` and `keys` are mutually exclusive.
+
+Example payload stored in GSM:
+
+```json
+{
+  "my-key1": "ENVVAR1",
+  "my-value1": "foo",
+  "my-key2": "ENVVAR2",
+  "my-value2": "bar"
+}
+```
+
+Example `GSMSecret` using pointer-based key and value extraction:
+
+```yaml
+apiVersion: secrets.gsm-operator.io/v1alpha1
+kind: GSMSecret
+metadata:
+  name: my-gsm-secrets
+  namespace: gsmsecret-test-ns
+spec:
+  targetSecret:
+    name: my-secret             # name of the K8s Secret to write
+  gsmSecrets:
+    - keys:
+        - key: /my-key1         # pointer to derive the K8s Secret data key
+          value: /my-value1     # pointer to derive the value
+        - key: /my-key2         # pointer to derive the K8s Secret data key
+          value: /my-value2     # pointer to derive the value
+      projectId: "gcp-proj-id"  # GSM Secret project ID
+      secretId: my-secret       # GSM secret name
+      version: "1"              # recommend pinning a version for stability
+```
 
 ## Reconciliation Triggers
 

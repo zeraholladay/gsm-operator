@@ -19,6 +19,7 @@ package controller
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -48,6 +49,20 @@ type secretMaterializer struct {
 type keyedSecretPayload struct {
 	Key   string
 	Value []byte
+}
+
+var secretKeyRegex = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+
+// newKeyedSecretPayload constructs a keyedSecretPayload after validating the key
+// against the same regex used for GSMSecret keys (see secretKeyRegex in secret_materializer_gsm.go).
+func newKeyedSecretPayload(key string, value []byte) (keyedSecretPayload, error) {
+	if !secretKeyRegex.MatchString(key) {
+		return keyedSecretPayload{}, fmt.Errorf("key %q does not match %q", key, secretKeyRegex.String())
+	}
+	return keyedSecretPayload{
+		Key:   key,
+		Value: value,
+	}, nil
 }
 
 // isTrustedSubsystem returns true if MODE=TRUSTED_SUBSYSTEM.

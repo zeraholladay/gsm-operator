@@ -18,11 +18,15 @@ limitations under the License.
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 
 	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
+	"github.com/kaptinlin/jsonpointer"
+	secretspizecomv1alpha1 "github.com/zeraholladay/gsm-operator/api/v1alpha1"
 	"google.golang.org/api/option"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -114,8 +118,13 @@ func (m *secretMaterializer) fetchSecretEntriesPayloads(
 	results := make([]keyedSecretPayload, 0, len(m.gsmSecret.Spec.Secrets))
 
 	for _, e := range m.gsmSecret.Spec.Secrets {
+		// Validation: reject entries that try to use both single key and multi-key forms.
+		if e.Key != "" && len(e.Keys) > 0 {
+			return nil, fmt.Errorf("invalid GSMSecret entry: cannot set both key and keys")
+		}
+
+		// Fetch the secret payload from GSM for the requested project/secret/version.
 		log.V(1).Info("fetching GSM secret payload",
-			"key", e.Key,
 			"projectID", e.ProjectID,
 			"secretID", e.SecretID,
 			"version", e.Version,
@@ -126,7 +135,6 @@ func (m *secretMaterializer) fetchSecretEntriesPayloads(
 		data, err := accessSecretPayload(ctx, client, name)
 		if err != nil {
 			log.Error(err, "failed to fetch GSM secret payload",
-				"key", e.Key,
 				"projectID", e.ProjectID,
 				"secretID", e.SecretID,
 				"version", e.Version,
@@ -135,10 +143,24 @@ func (m *secretMaterializer) fetchSecretEntriesPayloads(
 				e.Key, e.ProjectID, e.SecretID, e.Version, err)
 		}
 
-		results = append(results, keyedSecretPayload{
-			Key:   e.Key,
-			Value: data,
-		})
+		// Materialize the payload either as a single key or via multi-key mappings.
+		switch {
+		case e.Key != "":
+			payload, err := newKeyedSecretPayload(e.Key, data)
+			if err != nil {
+				return nil, fmt.Errorf("validate key %q: %w", e.Key, err)
+			}
+			results = append(results, payload)
+		case len(e.Keys) > 0:
+			mapped, err := mapKeysToSecretKeyMappings(data, e.Keys)
+			if err != nil {
+				return nil, fmt.Errorf("map key mappings for secret %q: %w", e.SecretID, err)
+			}
+			results = append(results, mapped...)
+		default:
+			// Spec requires exactly one of key or keys.
+			return nil, fmt.Errorf("invalid GSMSecret entry: either key or keys must be set")
+		}
 	}
 
 	return results, nil
@@ -165,4 +187,74 @@ func accessSecretPayload(
 
 	log.V(1).Info("successfully accessed GSM secret version", "resource", name)
 	return resp.GetPayload().GetData(), nil
+}
+
+// mapKeysToSecretKeyMappings expands a multi-key mapping entry into individual keyed payloads.
+// Each mapping.value is treated as a JSON Pointer (RFC 6901) into the secret payload.
+func mapKeysToSecretKeyMappings(data []byte, mappings []secretspizecomv1alpha1.SecretKeyMapping) ([]keyedSecretPayload, error) {
+	var payload interface{}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return nil, fmt.Errorf("decode secret payload as JSON: %w", err)
+	}
+
+	results := make([]keyedSecretPayload, 0, len(mappings))
+	for _, mapping := range mappings {
+		if strings.TrimSpace(mapping.Key) == "" {
+			return nil, fmt.Errorf("mapping key cannot be empty")
+		}
+		if strings.TrimSpace(mapping.Value) == "" {
+			return nil, fmt.Errorf("mapping value cannot be empty")
+		}
+
+		var targetKey string
+		if strings.HasPrefix(mapping.Key, "/") {
+			// Key is a JSON Pointer: resolve to a string and use that as the target key.
+			resolvedKey, err := extractStringAtPointer(payload, mapping.Key)
+			if err != nil {
+				return nil, fmt.Errorf("resolve key pointer %q: %w", mapping.Key, err)
+			}
+			if !secretKeyRegex.MatchString(resolvedKey) {
+				return nil, fmt.Errorf("resolved key %q does not match %q", resolvedKey, secretKeyRegex.String())
+			}
+			targetKey = resolvedKey
+		} else {
+			// Key is a literal string.
+			targetKey = mapping.Key
+		}
+
+		value, err := jsonpointer.GetByPointer(payload, mapping.Value)
+		if err != nil {
+			return nil, fmt.Errorf("extract %q: %w", mapping.Value, err)
+		}
+
+		// Marshal back to bytes to align with the rest of the payload handling.
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return nil, fmt.Errorf("marshal extracted value for key %q: %w", mapping.Key, err)
+		}
+
+		payload, err := newKeyedSecretPayload(targetKey, encoded)
+		if err != nil {
+			return nil, fmt.Errorf("validate key %q: %w", targetKey, err)
+		}
+		results = append(results, payload)
+	}
+
+	return results, nil
+}
+
+// extractStringAtPointer decodes the payload and resolves the given JSON Pointer.
+// It returns the value if it exists and is a JSON string.
+func extractStringAtPointer(payload interface{}, pointer string) (string, error) {
+	val, err := jsonpointer.GetByPointer(payload, pointer)
+	if err != nil {
+		return "", err
+	}
+
+	s, ok := val.(string)
+	if !ok {
+		return "", fmt.Errorf("value at %q is not a string", pointer)
+	}
+
+	return s, nil
 }

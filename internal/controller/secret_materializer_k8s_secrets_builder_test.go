@@ -26,6 +26,15 @@ import (
 	secretspizecomv1alpha1 "github.com/zeraholladay/gsm-operator/api/v1alpha1"
 )
 
+func newTestPayload(t *testing.T, key string, value []byte) keyedSecretPayload {
+	t.Helper()
+	p, err := newKeyedSecretPayload(key, value)
+	if err != nil {
+		t.Fatalf("newKeyedSecretPayload(%q) failed: %v", key, err)
+	}
+	return p
+}
+
 func TestBuildOpaqueSecret_Success(t *testing.T) {
 	m := &secretMaterializer{
 		gsmSecret: &secretspizecomv1alpha1.GSMSecret{
@@ -40,8 +49,8 @@ func TestBuildOpaqueSecret_Success(t *testing.T) {
 			},
 		},
 		payloads: []keyedSecretPayload{
-			{Key: "DB_PASSWORD", Value: []byte("super-secret")},
-			{Key: "API_KEY", Value: []byte("api-key-value")},
+			newTestPayload(t, "DB_PASSWORD", []byte("super-secret")),
+			newTestPayload(t, "API_KEY", []byte("api-key-value")),
 		},
 	}
 
@@ -110,9 +119,9 @@ func TestBuildOpaqueSecret_DuplicateKey_LastWins(t *testing.T) {
 			},
 		},
 		payloads: []keyedSecretPayload{
-			{Key: "DUPLICATE_KEY", Value: []byte("value1")},
-			{Key: "OTHER_KEY", Value: []byte("other-value")},
-			{Key: "DUPLICATE_KEY", Value: []byte("value2")}, // duplicate - should win
+			newTestPayload(t, "DUPLICATE_KEY", []byte("value1")),
+			newTestPayload(t, "OTHER_KEY", []byte("other-value")),
+			newTestPayload(t, "DUPLICATE_KEY", []byte("value2")), // duplicate - should win
 		},
 	}
 
@@ -147,7 +156,8 @@ func TestBuildOpaqueSecret_EmptyKey(t *testing.T) {
 			},
 		},
 		payloads: []keyedSecretPayload{
-			{Key: "VALID_KEY", Value: []byte("valid-value")},
+			newTestPayload(t, "VALID_KEY", []byte("valid-value")),
+			// Use constructor directly to inject invalid key for this negative test.
 			{Key: "", Value: []byte("empty-key-value")}, // empty key
 		},
 	}
@@ -198,8 +208,8 @@ func TestBuildOpaqueSecret_EmptyValue(t *testing.T) {
 			},
 		},
 		payloads: []keyedSecretPayload{
-			{Key: "EMPTY_VALUE_KEY", Value: []byte{}},
-			{Key: "NIL_VALUE_KEY", Value: nil},
+			newTestPayload(t, "EMPTY_VALUE_KEY", []byte{}),
+			newTestPayload(t, "NIL_VALUE_KEY", nil),
 		},
 	}
 
@@ -232,7 +242,7 @@ func TestBuildOpaqueSecret_BinaryPayload(t *testing.T) {
 			},
 		},
 		payloads: []keyedSecretPayload{
-			{Key: "BINARY_DATA", Value: binaryData},
+			newTestPayload(t, "BINARY_DATA", binaryData),
 		},
 	}
 
@@ -260,9 +270,9 @@ func TestBuildOpaqueSecret_SpecialCharacterKeys(t *testing.T) {
 			},
 		},
 		payloads: []keyedSecretPayload{
-			{Key: "KEY_WITH.DOT", Value: []byte("value1")},
-			{Key: "KEY-WITH-DASH", Value: []byte("value2")},
-			{Key: "KEY_WITH_UNDERSCORE", Value: []byte("value3")},
+			newTestPayload(t, "KEY_WITH.DOT", []byte("value1")),
+			newTestPayload(t, "KEY-WITH-DASH", []byte("value2")),
+			newTestPayload(t, "KEY_WITH_UNDERSCORE", []byte("value3")),
 		},
 	}
 
