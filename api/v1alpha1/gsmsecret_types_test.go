@@ -207,10 +207,10 @@ func TestGSMSecretEntryKeyPattern(t *testing.T) {
 
 // ==================== SecretKeyMapping Tests ====================
 
-// SecretKeyMapping.key must match pattern allowing simple keys or JSON Pointer paths.
-func TestSecretKeyMappingKeyPattern(t *testing.T) {
-	specSchema := loadSpecSchema(t)
+func secretKeyMappingSchema(t *testing.T) *apiextensionsv1.JSONSchemaProps {
+	t.Helper()
 
+	specSchema := loadSpecSchema(t)
 	prop, ok := specSchema.Properties["gsmSecrets"]
 	if !ok {
 		t.Fatalf("gsmSecrets property missing from schema")
@@ -226,7 +226,12 @@ func TestSecretKeyMappingKeyPattern(t *testing.T) {
 		t.Fatal("keys items schema missing")
 	}
 
-	mapping := keysProp.Items.Schema
+	return keysProp.Items.Schema
+}
+
+// SecretKeyMapping.key must match pattern allowing simple keys or JSON Pointer paths.
+func TestSecretKeyMappingKeyPattern(t *testing.T) {
+	mapping := secretKeyMappingSchema(t)
 	keyProp, ok := mapping.Properties["key"]
 	if !ok {
 		t.Fatal("key property missing from SecretKeyMapping schema")
@@ -245,24 +250,7 @@ func TestSecretKeyMappingKeyPattern(t *testing.T) {
 
 // SecretKeyMapping.value must be a JSON Pointer path (required).
 func TestSecretKeyMappingValuePattern(t *testing.T) {
-	specSchema := loadSpecSchema(t)
-
-	prop, ok := specSchema.Properties["gsmSecrets"]
-	if !ok {
-		t.Fatalf("gsmSecrets property missing from schema")
-	}
-
-	entry := prop.Items.Schema
-	keysProp, ok := entry.Properties["keys"]
-	if !ok {
-		t.Fatalf("keys property missing from gsmSecrets entry schema")
-	}
-
-	if keysProp.Items == nil || keysProp.Items.Schema == nil {
-		t.Fatal("keys items schema missing")
-	}
-
-	mapping := keysProp.Items.Schema
+	mapping := secretKeyMappingSchema(t)
 	valueProp, ok := mapping.Properties["value"]
 	if !ok {
 		t.Fatal("value property missing from SecretKeyMapping schema")
