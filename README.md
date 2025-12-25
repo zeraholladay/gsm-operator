@@ -511,6 +511,32 @@ spec:
       version: "1"              # recommend pinning a version for stability
 ```
 
+## Materialization Ordering
+
+Entries in `gsmSecrets` are processed in list order. If multiple entries target the same Secret data key, the last one wins (later entries always overwrite earlier ones).
+
+Example (last wins):
+
+```yaml
+apiVersion: secrets.gsm-operator.io/v1alpha1
+kind: GSMSecret
+metadata:
+  name: my-gsm-secrets
+  namespace: gsmsecret-test-ns
+spec:
+  targetSecret:
+    name: my-secret
+  gsmSecrets:
+    - key: SAME_KEY
+      projectId: proj
+      secretId: first
+      version: "1"
+    - key: SAME_KEY          # this value overwrites the first one in my-secret
+      projectId: proj
+      secretId: second
+      version: "1"
+```
+
 ## Reconciliation Triggers
 
 The controller uses predicates to optimize when reconciliation occurs, avoiding unnecessary work:

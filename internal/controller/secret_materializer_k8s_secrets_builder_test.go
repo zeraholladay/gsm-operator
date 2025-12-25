@@ -285,3 +285,53 @@ func TestBuildOpaqueSecret_SpecialCharacterKeys(t *testing.T) {
 		t.Errorf("expected 3 data entries, got %d", len(secret.Data))
 	}
 }
+
+// Mirrors a mixed key/keys list where later entries overwrite earlier ones for the same key.
+// Scenario:
+// - Entry 1: key ENVVAR3 -> "value3"
+// - Entry 2: keys (ENVVAR1, ENVVAR2) from JSON pointers
+// - Entry 3: key ENVVAR1 -> "overridden" (should overwrite the value from entry 2)
+func TestBuildOpaqueSecret_MixedKeysAndPointers_LastWins(t *testing.T) {
+	// Simulated JSON payload for the multi-key entry
+	multiPayload := []byte(`{"ENVVAR1":"from-pointer-1","ENVVAR2":"from-pointer-2"}`)
+
+	m := &secretMaterializer{
+		gsmSecret: &secretspizecomv1alpha1.GSMSecret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-gsmsecret",
+				Namespace: "test-namespace",
+			},
+			Spec: secretspizecomv1alpha1.GSMSecretSpec{
+				TargetSecret: secretspizecomv1alpha1.GSMSecretTargetSecret{
+					Name: "my-secret",
+				},
+			},
+		},
+		payloads: []keyedSecretPayload{
+			newTestPayload(t, "ENVVAR3", []byte("value3")),             // entry 1
+			newTestPayload(t, "ENVVAR1", []byte("from-pointer-1")),     // from pointers (simulated result)
+			newTestPayload(t, "ENVVAR2", []byte("from-pointer-2")),     // from pointers (simulated result)
+			newTestPayload(t, "ENVVAR1", []byte("overridden-value-1")), // entry 3 overrides ENVVAR1
+		},
+	}
+
+	secret, err := m.buildOpaqueSecret(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error building secret, got %v", err)
+	}
+
+	if string(secret.Data["ENVVAR1"]) != "overridden-value-1" {
+		t.Errorf("expected ENVVAR1 to be overwritten, got %q", string(secret.Data["ENVVAR1"]))
+	}
+	if string(secret.Data["ENVVAR2"]) != "from-pointer-2" {
+		t.Errorf("expected ENVVAR2='from-pointer-2', got %q", string(secret.Data["ENVVAR2"]))
+	}
+	if string(secret.Data["ENVVAR3"]) != "value3" {
+		t.Errorf("expected ENVVAR3='value3', got %q", string(secret.Data["ENVVAR3"]))
+	}
+	if len(secret.Data) != 3 {
+		t.Errorf("expected 3 data entries, got %d", len(secret.Data))
+	}
+
+	_ = multiPayload // keep payload for documentation alignment (simulated pointer source)
+}
