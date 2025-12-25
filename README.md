@@ -434,13 +434,101 @@ the '--force' flag and manually ensure that any custom configuration
 previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
 is manually re-applied afterwards.
 
-## Contributing
-TODO(user): Add detailed information on how you would like others to contribute to this project
+## Secrets Using JSON Pointer (RFC 6901)
 
-**NOTE:** Run `make help` for more information on all potential `make` targets
+When `keys` is set (mutually exclusive with `key`), the operator treats the GSM secret payload as JSON and interprets each `value` as a JSON Pointer path from the root of that document.
 
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+Example payload stored in GSM:
 
+```json
+{
+  "ENVVAR1": "foo",
+  "ENVVAR2": "bar"
+}
+```
+
+Example `GSMSecret` that maps two keys from that JSON payload:
+
+```yaml
+apiVersion: secrets.gsm-operator.io/v1alpha1
+kind: GSMSecret
+metadata:
+  name: my-gsm-secrets
+  namespace: gsmsecret-test-ns
+spec:
+  targetSecret:
+    name: my-secret             # name of the K8s Secret to write
+  gsmSecrets:
+    - keys:
+        - key: ENVVAR1
+          value: /ENVVAR1
+        - key: ENVVAR2
+          value: /ENVVAR2
+      projectId: "gcp-proj-id"  # GSM Secret project ID
+      secretId: my-secret       # GSM secret name
+      version: "1"              # recommend pinning a version for stability
+```
+
+Additionally, when a `key` entry inside `keys` starts with `/`, it is treated as a JSON Pointer into the GSM secret’s JSON payload and must resolve to a string matching the allowed key pattern (`^[A-Za-z0-9._-]+$`). The corresponding `value` is also a JSON Pointer into the same payload. `key` and `keys` are mutually exclusive.
+
+Example payload stored in GSM:
+
+```json
+{
+  "my-key1": "ENVVAR1",
+  "my-value1": "foo",
+  "my-key2": "ENVVAR2",
+  "my-value2": "bar"
+}
+```
+
+Example `GSMSecret` using pointer-based key and value extraction:
+
+```yaml
+apiVersion: secrets.gsm-operator.io/v1alpha1
+kind: GSMSecret
+metadata:
+  name: my-gsm-secrets
+  namespace: gsmsecret-test-ns
+spec:
+  targetSecret:
+    name: my-secret             # name of the K8s Secret to write
+  gsmSecrets:
+    - keys:
+        - key: /my-key1         # pointer to derive the K8s Secret data key
+          value: /my-value1     # pointer to derive the value
+        - key: /my-key2         # pointer to derive the K8s Secret data key
+          value: /my-value2     # pointer to derive the value
+      projectId: "gcp-proj-id"  # GSM Secret project ID
+      secretId: my-secret       # GSM secret name
+      version: "1"              # recommend pinning a version for stability
+```
+
+## Materialization Ordering
+
+Entries in `gsmSecrets` are processed in list order. If multiple entries target the same Secret data key, the last one wins (later entries always overwrite earlier ones).
+
+Example (last wins):
+
+```yaml
+apiVersion: secrets.gsm-operator.io/v1alpha1
+kind: GSMSecret
+metadata:
+  name: my-gsm-secrets
+  namespace: gsmsecret-test-ns
+spec:
+  targetSecret:
+    name: my-secret
+  gsmSecrets:
+    - key: SAME_KEY
+      projectId: proj
+      secretId: first
+      version: "1"
+    - key: SAME_KEY          # this value overwrites the first one in my-secret
+      projectId: proj
+      secretId: second
+      version: "1"
+```
 
 ## Reconciliation Triggers
 
@@ -460,6 +548,13 @@ The controller uses predicates to optimize when reconciliation occurs, avoiding 
 | Owned `Secret` metadata-only update | No |
 
 The controller also requeues periodically (default: 5 minutes, configurable via `RESYNC_INTERVAL_SECONDS` env var) to pick up changes in Google Secret Manager.
+
+## Contributing
+TODO(user): Add detailed information on how you would like others to contribute to this project
+
+**NOTE:** Run `make help` for more information on all potential `make` targets
+
+More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
 ## License
 

@@ -100,7 +100,8 @@ func TestGSMSecretEntryVersionRequiredNoDefault(t *testing.T) {
 	}
 }
 
-// gsmSecrets entries require key, projectId, secretId with minLength=1.
+// gsmSecrets entries require projectId, secretId with minLength=1.
+// Note: key is now optional (mutually exclusive with keys via XOR validation).
 func TestGSMSecretEntryRequiredCoreFields(t *testing.T) {
 	specSchema := loadSpecSchema(t)
 
@@ -111,32 +112,79 @@ func TestGSMSecretEntryRequiredCoreFields(t *testing.T) {
 
 	entry := prop.Items.Schema
 
-	fields := []struct {
-		name string
-	}{
-		{name: "key"},
-		{name: "projectId"},
-		{name: "secretId"},
-	}
+	// These fields are always required
+	requiredFieldsList := []string{"projectId", "secretId"}
 
 	required := requiredFields(entry.Required)
-	for _, f := range fields {
-		t.Run(f.name, func(t *testing.T) {
-			p, ok := entry.Properties[f.name]
+	for _, name := range requiredFieldsList {
+		t.Run(name, func(t *testing.T) {
+			p, ok := entry.Properties[name]
 			if !ok {
-				t.Fatalf("%s property missing from gsmSecrets entry schema", f.name)
+				t.Fatalf("%s property missing from gsmSecrets entry schema", name)
 			}
 			if p.MinLength == nil || *p.MinLength != 1 {
-				t.Fatalf("%s minLength = %v, want 1", f.name, p.MinLength)
+				t.Fatalf("%s minLength = %v, want 1", name, p.MinLength)
 			}
-			if _, ok := required[f.name]; !ok {
-				t.Fatalf("%s is not marked as required; required fields: %v", f.name, entry.Required)
+			if _, ok := required[name]; !ok {
+				t.Fatalf("%s is not marked as required; required fields: %v", name, entry.Required)
 			}
 		})
 	}
 }
 
-// gsmSecrets entry key must match allowed pattern.
+// gsmSecrets entry key is optional (mutually exclusive with keys).
+func TestGSMSecretEntryKeyIsOptional(t *testing.T) {
+	specSchema := loadSpecSchema(t)
+
+	prop, ok := specSchema.Properties["gsmSecrets"]
+	if !ok {
+		t.Fatalf("gsmSecrets property missing from schema")
+	}
+
+	entry := prop.Items.Schema
+	required := requiredFields(entry.Required)
+
+	// key should NOT be in required list (it's optional due to XOR with keys)
+	if _, ok := required["key"]; ok {
+		t.Fatal("key should be optional (not in required list) due to XOR validation with keys")
+	}
+
+	// But key property should exist
+	if _, ok := entry.Properties["key"]; !ok {
+		t.Fatal("key property missing from gsmSecrets entry schema")
+	}
+}
+
+// gsmSecrets entry keys is optional (mutually exclusive with key).
+func TestGSMSecretEntryKeysIsOptional(t *testing.T) {
+	specSchema := loadSpecSchema(t)
+
+	prop, ok := specSchema.Properties["gsmSecrets"]
+	if !ok {
+		t.Fatalf("gsmSecrets property missing from schema")
+	}
+
+	entry := prop.Items.Schema
+	required := requiredFields(entry.Required)
+
+	// keys should NOT be in required list (it's optional due to XOR with key)
+	if _, ok := required["keys"]; ok {
+		t.Fatal("keys should be optional (not in required list) due to XOR validation with key")
+	}
+
+	// But keys property should exist
+	keysProp, ok := entry.Properties["keys"]
+	if !ok {
+		t.Fatal("keys property missing from gsmSecrets entry schema")
+	}
+
+	// keys should be an array
+	if keysProp.Type != "array" {
+		t.Fatalf("keys type = %q, want 'array'", keysProp.Type)
+	}
+}
+
+// gsmSecrets entry key must match allowed pattern (simple key name only).
 func TestGSMSecretEntryKeyPattern(t *testing.T) {
 	specSchema := loadSpecSchema(t)
 
@@ -154,6 +202,127 @@ func TestGSMSecretEntryKeyPattern(t *testing.T) {
 	const expectedPattern = "^[A-Za-z0-9._-]+$"
 	if keyProp.Pattern != expectedPattern {
 		t.Fatalf("key pattern = %q, want %q", keyProp.Pattern, expectedPattern)
+	}
+}
+
+// ==================== SecretKeyMapping Tests ====================
+
+func secretKeyMappingSchema(t *testing.T) *apiextensionsv1.JSONSchemaProps {
+	t.Helper()
+
+	specSchema := loadSpecSchema(t)
+	prop, ok := specSchema.Properties["gsmSecrets"]
+	if !ok {
+		t.Fatalf("gsmSecrets property missing from schema")
+	}
+
+	entry := prop.Items.Schema
+	keysProp, ok := entry.Properties["keys"]
+	if !ok {
+		t.Fatalf("keys property missing from gsmSecrets entry schema")
+	}
+
+	if keysProp.Items == nil || keysProp.Items.Schema == nil {
+		t.Fatal("keys items schema missing")
+	}
+
+	return keysProp.Items.Schema
+}
+
+// SecretKeyMapping.key must match pattern allowing simple keys or JSON Pointer paths.
+func TestSecretKeyMappingKeyPattern(t *testing.T) {
+	mapping := secretKeyMappingSchema(t)
+	keyProp, ok := mapping.Properties["key"]
+	if !ok {
+		t.Fatal("key property missing from SecretKeyMapping schema")
+	}
+
+	// Pattern should allow simple keys OR JSON Pointer paths
+	const expectedPattern = "^([A-Za-z0-9._-]+|(/[^/]*)+)$"
+	if keyProp.Pattern != expectedPattern {
+		t.Fatalf("SecretKeyMapping.key pattern = %q, want %q", keyProp.Pattern, expectedPattern)
+	}
+
+	if keyProp.MinLength == nil || *keyProp.MinLength != 1 {
+		t.Fatalf("SecretKeyMapping.key minLength = %v, want 1", keyProp.MinLength)
+	}
+}
+
+// SecretKeyMapping.value must be a JSON Pointer path (required).
+func TestSecretKeyMappingValuePattern(t *testing.T) {
+	mapping := secretKeyMappingSchema(t)
+	valueProp, ok := mapping.Properties["value"]
+	if !ok {
+		t.Fatal("value property missing from SecretKeyMapping schema")
+	}
+
+	// Pattern should require JSON Pointer format
+	const expectedPattern = "^(/[^/]*)+$"
+	if valueProp.Pattern != expectedPattern {
+		t.Fatalf("SecretKeyMapping.value pattern = %q, want %q", valueProp.Pattern, expectedPattern)
+	}
+
+	if valueProp.MinLength == nil || *valueProp.MinLength != 1 {
+		t.Fatalf("SecretKeyMapping.value minLength = %v, want 1", valueProp.MinLength)
+	}
+}
+
+// SecretKeyMapping requires both key and value fields.
+func TestSecretKeyMappingRequiredFields(t *testing.T) {
+	specSchema := loadSpecSchema(t)
+
+	prop, ok := specSchema.Properties["gsmSecrets"]
+	if !ok {
+		t.Fatalf("gsmSecrets property missing from schema")
+	}
+
+	entry := prop.Items.Schema
+	keysProp, ok := entry.Properties["keys"]
+	if !ok {
+		t.Fatalf("keys property missing from gsmSecrets entry schema")
+	}
+
+	if keysProp.Items == nil || keysProp.Items.Schema == nil {
+		t.Fatal("keys items schema missing")
+	}
+
+	mapping := keysProp.Items.Schema
+	required := requiredFields(mapping.Required)
+
+	if _, ok := required["key"]; !ok {
+		t.Fatal("SecretKeyMapping.key should be required")
+	}
+	if _, ok := required["value"]; !ok {
+		t.Fatal("SecretKeyMapping.value should be required")
+	}
+}
+
+// GSMSecretEntry should have XOR validation for key/keys.
+func TestGSMSecretEntryHasXORValidation(t *testing.T) {
+	specSchema := loadSpecSchema(t)
+
+	prop, ok := specSchema.Properties["gsmSecrets"]
+	if !ok {
+		t.Fatalf("gsmSecrets property missing from schema")
+	}
+
+	entry := prop.Items.Schema
+
+	// Check for x-kubernetes-validations (CEL rules)
+	if len(entry.XValidations) == 0 {
+		t.Fatal("gsmSecrets entry should have XValidations for key/keys XOR")
+	}
+
+	// Look for the XOR rule
+	foundXOR := false
+	for _, v := range entry.XValidations {
+		if v.Message == "exactly one of 'key' or 'keys' must be specified" {
+			foundXOR = true
+			break
+		}
+	}
+	if !foundXOR {
+		t.Fatal("XOR validation rule for key/keys not found")
 	}
 }
 
@@ -749,6 +918,63 @@ func TestGSMSecretEntryDeepCopy(t *testing.T) {
 	}
 	if copied.Version != original.Version {
 		t.Errorf("copied Version = %q, want %q", copied.Version, original.Version)
+	}
+}
+
+func TestGSMSecretEntryWithKeysDeepCopy(t *testing.T) {
+	original := GSMSecretEntry{
+		Keys: []SecretKeyMapping{
+			{Key: "DB_HOST", Value: "/host"},
+			{Key: "DB_PORT", Value: "/port"},
+		},
+		ProjectID: "my-project",
+		SecretID:  "db-config",
+		Version:   "1",
+	}
+
+	copied := original.DeepCopy()
+
+	if len(copied.Keys) != len(original.Keys) {
+		t.Fatalf("copied Keys length = %d, want %d", len(copied.Keys), len(original.Keys))
+	}
+
+	// Verify values are equal
+	for i, k := range original.Keys {
+		if copied.Keys[i].Key != k.Key {
+			t.Errorf("copied Keys[%d].Key = %q, want %q", i, copied.Keys[i].Key, k.Key)
+		}
+		if copied.Keys[i].Value != k.Value {
+			t.Errorf("copied Keys[%d].Value = %q, want %q", i, copied.Keys[i].Value, k.Value)
+		}
+	}
+
+	// Modify copy and verify original unchanged
+	copied.Keys[0].Key = testModifiedValue
+	if original.Keys[0].Key == testModifiedValue {
+		t.Error("modifying copy affected original - not a deep copy")
+	}
+}
+
+func TestSecretKeyMappingDeepCopy(t *testing.T) {
+	original := SecretKeyMapping{
+		Key:   "MY_KEY",
+		Value: "/data/password",
+	}
+
+	copied := original.DeepCopy()
+
+	if copied.Key != original.Key {
+		t.Errorf("copied Key = %q, want %q", copied.Key, original.Key)
+	}
+	if copied.Value != original.Value {
+		t.Errorf("copied Value = %q, want %q", copied.Value, original.Value)
+	}
+}
+
+func TestNilSecretKeyMappingDeepCopy(t *testing.T) {
+	var nilMapping *SecretKeyMapping
+	if nilMapping.DeepCopy() != nil {
+		t.Error("DeepCopy of nil SecretKeyMapping should return nil")
 	}
 }
 

@@ -26,6 +26,15 @@ import (
 	secretspizecomv1alpha1 "github.com/zeraholladay/gsm-operator/api/v1alpha1"
 )
 
+func newTestPayload(t *testing.T, key string, value []byte) keyedSecretPayload {
+	t.Helper()
+	p, err := newKeyedSecretPayload(key, value)
+	if err != nil {
+		t.Fatalf("newKeyedSecretPayload(%q) failed: %v", key, err)
+	}
+	return p
+}
+
 func TestBuildOpaqueSecret_Success(t *testing.T) {
 	m := &secretMaterializer{
 		gsmSecret: &secretspizecomv1alpha1.GSMSecret{
@@ -40,8 +49,8 @@ func TestBuildOpaqueSecret_Success(t *testing.T) {
 			},
 		},
 		payloads: []keyedSecretPayload{
-			{Key: "DB_PASSWORD", Value: []byte("super-secret")},
-			{Key: "API_KEY", Value: []byte("api-key-value")},
+			newTestPayload(t, "DB_PASSWORD", []byte("super-secret")),
+			newTestPayload(t, "API_KEY", []byte("api-key-value")),
 		},
 	}
 
@@ -110,9 +119,9 @@ func TestBuildOpaqueSecret_DuplicateKey_LastWins(t *testing.T) {
 			},
 		},
 		payloads: []keyedSecretPayload{
-			{Key: "DUPLICATE_KEY", Value: []byte("value1")},
-			{Key: "OTHER_KEY", Value: []byte("other-value")},
-			{Key: "DUPLICATE_KEY", Value: []byte("value2")}, // duplicate - should win
+			newTestPayload(t, "DUPLICATE_KEY", []byte("value1")),
+			newTestPayload(t, "OTHER_KEY", []byte("other-value")),
+			newTestPayload(t, "DUPLICATE_KEY", []byte("value2")), // duplicate - should win
 		},
 	}
 
@@ -147,7 +156,8 @@ func TestBuildOpaqueSecret_EmptyKey(t *testing.T) {
 			},
 		},
 		payloads: []keyedSecretPayload{
-			{Key: "VALID_KEY", Value: []byte("valid-value")},
+			newTestPayload(t, "VALID_KEY", []byte("valid-value")),
+			// Use constructor directly to inject invalid key for this negative test.
 			{Key: "", Value: []byte("empty-key-value")}, // empty key
 		},
 	}
@@ -198,8 +208,8 @@ func TestBuildOpaqueSecret_EmptyValue(t *testing.T) {
 			},
 		},
 		payloads: []keyedSecretPayload{
-			{Key: "EMPTY_VALUE_KEY", Value: []byte{}},
-			{Key: "NIL_VALUE_KEY", Value: nil},
+			newTestPayload(t, "EMPTY_VALUE_KEY", []byte{}),
+			newTestPayload(t, "NIL_VALUE_KEY", nil),
 		},
 	}
 
@@ -232,7 +242,7 @@ func TestBuildOpaqueSecret_BinaryPayload(t *testing.T) {
 			},
 		},
 		payloads: []keyedSecretPayload{
-			{Key: "BINARY_DATA", Value: binaryData},
+			newTestPayload(t, "BINARY_DATA", binaryData),
 		},
 	}
 
@@ -260,9 +270,9 @@ func TestBuildOpaqueSecret_SpecialCharacterKeys(t *testing.T) {
 			},
 		},
 		payloads: []keyedSecretPayload{
-			{Key: "KEY_WITH.DOT", Value: []byte("value1")},
-			{Key: "KEY-WITH-DASH", Value: []byte("value2")},
-			{Key: "KEY_WITH_UNDERSCORE", Value: []byte("value3")},
+			newTestPayload(t, "KEY_WITH.DOT", []byte("value1")),
+			newTestPayload(t, "KEY-WITH-DASH", []byte("value2")),
+			newTestPayload(t, "KEY_WITH_UNDERSCORE", []byte("value3")),
 		},
 	}
 
@@ -274,4 +284,54 @@ func TestBuildOpaqueSecret_SpecialCharacterKeys(t *testing.T) {
 	if len(secret.Data) != 3 {
 		t.Errorf("expected 3 data entries, got %d", len(secret.Data))
 	}
+}
+
+// Mirrors a mixed key/keys list where later entries overwrite earlier ones for the same key.
+// Scenario:
+// - Entry 1: key ENVVAR3 -> "value3"
+// - Entry 2: keys (ENVVAR1, ENVVAR2) from JSON pointers
+// - Entry 3: key ENVVAR1 -> "overridden" (should overwrite the value from entry 2)
+func TestBuildOpaqueSecret_MixedKeysAndPointers_LastWins(t *testing.T) {
+	// Simulated JSON payload for the multi-key entry
+	multiPayload := []byte(`{"ENVVAR1":"from-pointer-1","ENVVAR2":"from-pointer-2"}`)
+
+	m := &secretMaterializer{
+		gsmSecret: &secretspizecomv1alpha1.GSMSecret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-gsmsecret",
+				Namespace: "test-namespace",
+			},
+			Spec: secretspizecomv1alpha1.GSMSecretSpec{
+				TargetSecret: secretspizecomv1alpha1.GSMSecretTargetSecret{
+					Name: "my-secret",
+				},
+			},
+		},
+		payloads: []keyedSecretPayload{
+			newTestPayload(t, "ENVVAR3", []byte("value3")),             // entry 1
+			newTestPayload(t, "ENVVAR1", []byte("from-pointer-1")),     // from pointers (simulated result)
+			newTestPayload(t, "ENVVAR2", []byte("from-pointer-2")),     // from pointers (simulated result)
+			newTestPayload(t, "ENVVAR1", []byte("overridden-value-1")), // entry 3 overrides ENVVAR1
+		},
+	}
+
+	secret, err := m.buildOpaqueSecret(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error building secret, got %v", err)
+	}
+
+	if string(secret.Data["ENVVAR1"]) != "overridden-value-1" {
+		t.Errorf("expected ENVVAR1 to be overwritten, got %q", string(secret.Data["ENVVAR1"]))
+	}
+	if string(secret.Data["ENVVAR2"]) != "from-pointer-2" {
+		t.Errorf("expected ENVVAR2='from-pointer-2', got %q", string(secret.Data["ENVVAR2"]))
+	}
+	if string(secret.Data["ENVVAR3"]) != "value3" {
+		t.Errorf("expected ENVVAR3='value3', got %q", string(secret.Data["ENVVAR3"]))
+	}
+	if len(secret.Data) != 3 {
+		t.Errorf("expected 3 data entries, got %d", len(secret.Data))
+	}
+
+	_ = multiPayload // keep payload for documentation alignment (simulated pointer source)
 }

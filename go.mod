@@ -1,8 +1,9 @@
 module github.com/zeraholladay/gsm-operator
 
-go 1.24.6
+go 1.25
 
 require (
+	github.com/kaptinlin/jsonpointer v0.4.8
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.36.1
 	k8s.io/apimachinery v0.34.1

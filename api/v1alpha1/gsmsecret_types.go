@@ -46,12 +46,21 @@ type GSMSecretTargetSecret struct {
 }
 
 // GSMSecretEntry describes a single GSM secret to materialize.
+// Either Key or Keys must be specified, but not both.
+// +kubebuilder:validation:XValidation:rule="(has(self.key) && self.key != \"\") != (has(self.keys) && size(self.keys) > 0)",message="exactly one of 'key' or 'keys' must be specified"
 type GSMSecretEntry struct {
 	// Key is the key under which the value will be stored in the target Secret's data.
+	// Use this for simple single-key mappings. Mutually exclusive with Keys.
 	// Example: "MY_ENVVAR".
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9._-]+$`
-	Key string `json:"key"`
+	// +optional
+	Key string `json:"key,omitempty"`
+
+	// Keys is a list of key-value mappings for storing the secret under multiple keys
+	// or extracting specific values. Mutually exclusive with Key.
+	// +optional
+	Keys []SecretKeyMapping `json:"keys,omitempty"`
 
 	// ProjectID is the GCP project that owns the Secret Manager secret.
 	// +kubebuilder:validation:MinLength=1
@@ -69,6 +78,21 @@ type GSMSecretEntry struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Pattern=`^(latest|[1-9][0-9]*)$`
 	Version string `json:"version"`
+}
+
+// SecretKeyMapping represents a key-value pair for mapping GSM secret data to K8s Secret keys.
+type SecretKeyMapping struct {
+	// Key is the key under which the value will be stored in the target Secret's data.
+	// Accepts either a simple key name (e.g., "MY_KEY") or a JSON Pointer path (RFC 6901, e.g., "/foo/bar").
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^([A-Za-z0-9._-]+|(/[^/]*)+)$`
+	Key string `json:"key"`
+
+	// Value is a JSON Pointer (RFC 6901) path to extract from the secret payload.
+	// Example: "/username" or "/data/0/password".
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^(/[^/]*)+$`
+	Value string `json:"value"`
 }
 
 // GSMSecretStatus defines the observed state of GSMSecret.
