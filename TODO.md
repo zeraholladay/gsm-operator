@@ -21,5 +21,5 @@ Last updated: 2025-12-23
 - [x] Add architecture flow diagram
 - [x] Make resync interval configurable (currently hardcoded to 5 minutes)
 - [x] Configurable logging levels.
-- [ ] Trusted subsystem mode: use the identity of the operator.
-- [ ] Support Secrets in JSON format
+- [x] Trusted subsystem mode: use the identity of the operator.
+- [ ] Support Secrets in JSON format: JSON Pointer (RFC 6901) with github.com/kaptinlin/jsonpointer
